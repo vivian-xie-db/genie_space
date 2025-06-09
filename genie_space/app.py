@@ -12,7 +12,7 @@ import logging
 from genie_room import GenieClient
 import os
 import uuid
-
+from io import StringIO
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.serving import ChatMessage, ChatMessageRole
 from databricks.sdk.config import Config
@@ -37,6 +37,7 @@ app.layout = html.Div([
     html.Div([
         dcc.Store(id="selected-space-id", data=None, storage_type="local"),
         dcc.Store(id="spaces-list", data=[]),
+        dcc.Store(id="conversation-id-store", data=None, storage_type="local"),
         # Space selection overlay
         html.Div([
             html.Div([
@@ -77,10 +78,14 @@ app.layout = html.Div([
             ], id="left-component", className="left-component"),
             
             html.Div([
-                html.Div("Genie Space", id="logo-container", className="logo-container")
+                html.Div(
+                    html.Button("Change Space", id="change-space-button", className="logout-button"),
+                    id="logo-container",
+                    className="logo-container"
+                )
             ], className="nav-center"),
             html.Div([
-                html.Div("Y", className="user-avatar"),
+                html.Div(className="user-avatar"),
                 html.A(
                     html.Button(
                         "Logout",
@@ -214,18 +219,7 @@ def call_llm_for_insights(df, prompt=None):
     full_prompt = f"{prompt}Table data:\n{csv_data}"
     # Call OpenAI (replace with your own LLM provider as needed)
     try:
-        headers = request.headers
-        user_token = headers.get('X-Forwarded-Access-Token')
-        config = Config(
-            host=f"https://{os.environ.get('DATABRICKS_HOST')}",
-            token=user_token,
-            auth_type="pat",  # Explicitly set authentication type to PAT
-            retry_timeout_seconds=300,  # 5 minutes total retry timeout
-            max_retries=5,              # Maximum number of retries
-            retry_delay_seconds=2,      # Initial delay between retries
-            retry_backoff_factor=2      # Exponential backoff factor
-        )
-        client = WorkspaceClient(config=config)
+        client = WorkspaceClient()
         response = client.serving_endpoints.query(
             os.getenv("SERVING_ENDPOINT_NAME"),
             messages=[ChatMessage(content=full_prompt, role=ChatMessageRole.USER)],
@@ -234,7 +228,6 @@ def call_llm_for_insights(df, prompt=None):
     except Exception as e:
         return f"Error generating insights: {str(e)}"
     
-
 # First callback: Handle inputs and show thinking indicator
 @app.callback(
     [Output("chat-messages", "children", allow_duplicate=True),
@@ -292,7 +285,7 @@ def handle_all_inputs(s1_clicks, s2_clicks, s3_clicks, s4_clicks, send_clicks, s
     # Create user message with user info
     user_message = html.Div([
         html.Div([
-            html.Div("Y", className="user-avatar"),
+            html.Div(className="user-avatar"),
             html.Span("You", className="model-name")
         ], className="user-info"),
         html.Div(user_input, className="message-text")
@@ -353,26 +346,28 @@ def handle_all_inputs(s1_clicks, s2_clicks, s3_clicks, s4_clicks, send_clicks, s
     [Output("chat-messages", "children", allow_duplicate=True),
      Output("chat-history-store", "data", allow_duplicate=True),
      Output("chat-trigger", "data", allow_duplicate=True),
-     Output("query-running-store", "data", allow_duplicate=True)],
+     Output("query-running-store", "data", allow_duplicate=True),
+     Output("conversation-id-store", "data", allow_duplicate=True)],
     [Input("chat-trigger", "data")],
     [State("chat-messages", "children"),
      State("chat-history-store", "data"),
-     State("selected-space-id", "data")],
+     State("selected-space-id", "data"),
+     State("conversation-id-store", "data")],
     prevent_initial_call=True
 )
-def get_model_response(trigger_data, current_messages, chat_history, selected_space_id):
+def get_model_response(trigger_data, current_messages, chat_history, selected_space_id, conversation_id):
     if not trigger_data or not trigger_data.get("trigger"):
-        return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+        return no_update, no_update, no_update, no_update, no_update
     
     user_input = trigger_data.get("message", "")
     if not user_input:
-        return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+        return no_update, no_update, no_update, no_update, no_update
     
+    new_conv_id = conversation_id
     try:
         headers = request.headers
-        # user_token = os.environ.get("DATABRICKS_TOKEN")
         user_token = headers.get('X-Forwarded-Access-Token')
-        response, query_text = genie_query(user_input, user_token, selected_space_id)
+        new_conv_id, response, query_text = genie_query(user_input, user_token, selected_space_id, conversation_id)
         
         if isinstance(response, str):
             content = dcc.Markdown(response, className="message-text")
@@ -490,7 +485,7 @@ def get_model_response(trigger_data, current_messages, chat_history, selected_sp
         # Update chat history with both user message and bot response
         if chat_history and len(chat_history) > 0:
             chat_history[0]["messages"] = current_messages[:-1] + [bot_response]  
-        return current_messages[:-1] + [bot_response], chat_history, {"trigger": False, "message": ""}, False
+        return current_messages[:-1] + [bot_response], chat_history, {"trigger": False, "message": ""}, False, new_conv_id
         
     except Exception as e:
         error_msg = f"Sorry, I encountered an error: {str(e)}. Please try again later."
@@ -508,7 +503,7 @@ def get_model_response(trigger_data, current_messages, chat_history, selected_sp
         if chat_history and len(chat_history) > 0:
             chat_history[0]["messages"] = current_messages[:-1] + [error_response]
         
-        return current_messages[:-1] + [error_response], chat_history, {"trigger": False, "message": ""}, False
+        return current_messages[:-1] + [error_response], chat_history, {"trigger": False, "message": ""}, False, new_conv_id
 
 # Toggle sidebar and speech button
 @app.callback(
@@ -597,14 +592,15 @@ app.clientside_callback(
     prevent_initial_call=True
 )
 
-# Modify the new chat button callback to reset session
+# It now only resets the chat state, not the selected space.
 @app.callback(
     [Output("welcome-container", "className", allow_duplicate=True),
      Output("chat-messages", "children", allow_duplicate=True),
      Output("chat-trigger", "data", allow_duplicate=True),
      Output("query-running-store", "data", allow_duplicate=True),
      Output("chat-history-store", "data", allow_duplicate=True),
-     Output("session-store", "data", allow_duplicate=True)],
+     Output("session-store", "data", allow_duplicate=True),
+     Output("conversation-id-store", "data", allow_duplicate=True)],
     [Input("new-chat-button", "n_clicks"),
      Input("sidebar-new-chat-button", "n_clicks")],
     [State("chat-messages", "children"),
@@ -620,7 +616,43 @@ def reset_to_welcome(n_clicks1, n_clicks2, chat_messages, chat_trigger, chat_his
     # Reset session when starting a new chat
     new_session_data = {"current_session": None}
     return ("welcome-container visible", [], {"trigger": False, "message": ""}, 
-            False, chat_history_store, new_session_data)
+            False, chat_history_store, new_session_data, None)
+
+@app.callback(
+    [
+        Output("selected-space-id", "data", allow_duplicate=True),
+        Output("welcome-container", "className", allow_duplicate=True),
+        Output("chat-messages", "children", allow_duplicate=True),
+        Output("chat-trigger", "data", allow_duplicate=True),
+        Output("query-running-store", "data", allow_duplicate=True),
+        Output("chat-history-store", "data", allow_duplicate=True),
+        Output("session-store", "data", allow_duplicate=True),
+        Output("conversation-id-store", "data", allow_duplicate=True)
+    ],
+    Input("change-space-button", "n_clicks"),
+    [
+        State("chat-history-store", "data"),
+    ],
+    prevent_initial_call=True
+)
+def change_space_and_reset(n_clicks, chat_history):
+    if not n_clicks:
+        return [dash.no_update] * 8
+
+    # This logic is from reset_to_welcome
+    new_session_data = {"current_session": None}
+
+    # Return tuple must have 8 values
+    return (
+        None,  # for selected-space-id -> shows overlay
+        "welcome-container visible",  # for welcome-container
+        [],  # for chat-messages
+        {"trigger": False, "message": ""},  # for chat-trigger
+        False,  # for query-running-store
+        chat_history,  # for chat-history-store (no change)
+        new_session_data,  # for session-store
+        None  # for conversation-id-store
+    )
 
 @app.callback(
     [Output("welcome-container", "className", allow_duplicate=True)],
@@ -675,7 +707,7 @@ def generate_insights(n_clicks, btn_id, chat_history):
     if chat_history and len(chat_history) > 0:
         df_json = chat_history[0].get('dataframes', {}).get(table_id)
         if df_json:
-            df = pd.read_json(df_json, orient='split')
+            df = pd.read_json(StringIO(df_json), orient='split')
     if df is None:
         return html.Div("No data available for insights.", style={"color": "red"})
     insights = call_llm_for_insights(df)
@@ -728,8 +760,8 @@ def update_space_dropdown(spaces):
      Output("space-select-container", "style"),
      Output("main-content", "style"),
      Output("space-select-error", "children"),
-     Output("welcome-title", "children"),
-     Output("welcome-description", "children")],
+     Output("welcome-title", "children", allow_duplicate=True), # Allow duplicate
+     Output("welcome-description", "children", allow_duplicate=True)], # Allow duplicate
     Input("select-space-button", "n_clicks"),
     State("space-dropdown", "value"),
     State("spaces-list", "data"),
@@ -745,6 +777,26 @@ def select_space(n_clicks, space_id, spaces):
     title = selected["title"] if selected and selected.get("title") else DEFAULT_WELCOME_TITLE
     description = selected["description"] if selected and selected.get("description") else DEFAULT_WELCOME_DESCRIPTION
     return space_id, {"display": "none"}, {"display": "block"}, "", title, description
+
+# New callback to update welcome title and description on load or space change
+@app.callback(
+    [Output("welcome-title", "children", allow_duplicate=True),
+     Output("welcome-description", "children", allow_duplicate=True)],
+    [Input("selected-space-id", "data"),
+     Input("spaces-list", "data")],
+    prevent_initial_call=True
+)
+def update_welcome_content_on_load(selected_space_id, spaces):
+    if not selected_space_id or not spaces:
+        return DEFAULT_WELCOME_TITLE, DEFAULT_WELCOME_DESCRIPTION
+    
+    selected = next((s for s in spaces if s["space_id"] == selected_space_id), None)
+    if selected:
+        title = selected.get("title", DEFAULT_WELCOME_TITLE)
+        description = selected.get("description", DEFAULT_WELCOME_DESCRIPTION)
+        return title, description
+    
+    return DEFAULT_WELCOME_TITLE, DEFAULT_WELCOME_DESCRIPTION
 
 # Add a callback to control visibility of main-content and space-select-container
 @app.callback(
