@@ -42,7 +42,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    height: 48px;
+    height: 60px;
     padding: 0 16px;
     gap: 8px;
 }
@@ -496,7 +496,7 @@ body {
 
 .message {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     width: 100%;
 }
 
@@ -524,14 +524,14 @@ body {
 }
 
 .user-message .message-text {
-    padding: 2px 0px 12px 40px;
+    padding: 2px 0px 12px 20px;
     width: 100%;
 }
 
 .bot-message .message-content {
     border-radius: 12px;
     width: 100%;
-    padding: 2px 0px 12px 40px;
+    padding: 2px 0px 12px 20px;
     word-wrap: break-word;
     overflow-wrap: break-word;
     white-space: normal;
@@ -874,8 +874,8 @@ body::-webkit-scrollbar {
     padding: 4px 0;
 }
 .model-avatar {
-    width: 20px;
-    height: 20px;
+    width: 24px;
+    height: 24px;
     display: flex;
     border-radius: 4px;
     color: white;

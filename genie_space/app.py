@@ -61,7 +61,7 @@ app.layout = html.Div([
                 # Sidebar
                 html.Div([
                     html.Div([
-                        html.Div("Your conversations with Genie", className="sidebar-header-text"),
+                        html.Div("Your recent conversations", className="sidebar-header-text"),
                     ], className="sidebar-header"),
                     html.Div([], className="chat-list", id="chat-list")
                 ], id="sidebar", className="sidebar")
@@ -69,11 +69,11 @@ app.layout = html.Div([
 
             html.Div([
                 html.Div(
-                    html.Button("Change Space", id="change-space-button", className="logout-button"),
+                    html.Button("Change Agent", id="change-space-button", className="logout-button"),
                     id="logo-container",
                     className="logo-container"
                 )
-            ], className="nav-center"),
+            ], id="nav-center", className="nav-center"),
             html.Div([
                 html.Div(className="user-avatar"),
                 html.Div(
@@ -91,7 +91,7 @@ app.layout = html.Div([
                 )
             , html.Div(className="company-logo")
             ], className="nav-right")
-        ], className="top-nav", style={"position": "fixed", "top": "0", "left": "0", "width": "100%", "zIndex": "1001", "height": "60px", "backgroundColor": "#f8fafc"}), # Added style for fixed header
+        ], className="top-nav", style={"position": "fixed", "top": "0", "left": "0", "width": "100%", "zIndex": "1001", "backgroundColor": "#f8fafc"}), # Added style for fixed header
 
         # Main content wrapper (includes space overlay and main chat)
         # This wrapper will have a margin-top equal to the fixed header's height
@@ -100,13 +100,13 @@ app.layout = html.Div([
             html.Div([
                 html.Div([
                     html.Div(className="company-logo"),
-                    html.H3("Business Intelligence Agent", className="main-title"),
+                    html.H3("BI Agent Platform", className="main-title"),
                     html.Div([
                         html.Span(className="space-select-spinner"),
-                        "Loading Genie Spaces..."
+                        "Loading Agents..."
                     ], id="space-select-title", className="space-select-title"),
-                    dcc.Dropdown(id="space-dropdown", options=[], placeholder="Choose a Genie Space", className="space-select-dropdown", optionHeight=40, searchable=True),
-                    html.Button("Explore Genie Space", id="select-space-button", className="space-select-button"),
+                    dcc.Dropdown(id="space-dropdown", options=[], placeholder="Choose an Agent", className="space-select-dropdown", optionHeight=40, searchable=True),
+                    html.Button("Explore Agent", id="select-space-button", className="space-select-button"),
                     html.Div(id="space-select-error", className="space-select-error")
                 ], className="space-select-card")
             ], id="space-select-container", className="space-select-container", style={"height": "100%", "top": "0"}),
@@ -300,8 +300,7 @@ def handle_all_inputs(s1_clicks, s2_clicks, s3_clicks, s4_clicks, send_clicks, s
     # Create user message with user info
     user_message = html.Div([
         html.Div([
-            html.Div(className="user-avatar"),
-            html.Span("You", className="model-name")
+            html.Div(className="user-avatar")
         ], className="user-info"),
         html.Div(user_input, className="message-text")
     ], className="user-message message")
@@ -510,8 +509,7 @@ def get_model_response(trigger_data, current_messages, chat_history, selected_sp
         # Create bot response
         bot_response = html.Div([
             html.Div([
-                html.Div(className="model-avatar"),
-                html.Span("Genie", className="model-name")
+                html.Div(className="model-avatar")
             ], className="model-info"),
             html.Div([
                 content,
@@ -527,8 +525,7 @@ def get_model_response(trigger_data, current_messages, chat_history, selected_sp
         error_msg = f"Sorry, I encountered an error: {str(e)}. Please try again later."
         error_response = html.Div([
             html.Div([
-                html.Div(className="model-avatar"),
-                html.Span("Genie", className="model-name")
+                html.Div(className="model-avatar")
             ], className="model-info"),
             html.Div([
                 html.Div(error_msg, className="message-text")
@@ -808,7 +805,7 @@ def select_space(n_clicks, space_id, spaces):
     if not n_clicks:
         return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
     if not space_id:
-        return dash.no_update, {"display": "flex", "flexDirection": "column", "alignItems": "center", "justifyContent": "center", "height": "100%"}, {"display": "none"}, "Please select a Genie space.", dash.no_update, dash.no_update
+        return dash.no_update, {"display": "flex", "flexDirection": "column", "alignItems": "center", "justifyContent": "center", "height": "100%"}, {"display": "none"}, "Please select an Agent.", dash.no_update, dash.no_update
     # Find the selected space's title and description
     selected = next((s for s in spaces if s["space_id"] == space_id), None)
     title = selected["title"] if selected and selected.get("title") else DEFAULT_WELCOME_TITLE
@@ -837,16 +834,38 @@ def update_welcome_content_on_load(selected_space_id, spaces):
 
 # Add a callback to control visibility of main-content and space-select-container
 @app.callback(
-    [Output("main-content", "style", allow_duplicate=True), Output("space-select-container", "style", allow_duplicate=True)],
+    [
+        Output("main-content", "style", allow_duplicate=True),
+        Output("space-select-container", "style", allow_duplicate=True),
+        Output("left-component", "style"),
+        Output("nav-center", "style")
+    ],
     Input("selected-space-id", "data"),
     prevent_initial_call=True
 )
 def toggle_main_ui(selected_space_id):
     if selected_space_id:
-        return {"display": "block"}, {"display": "none"}
+        # Main content view is active
+        main_style = {"display": "block"}
+        overlay_style = {"display": "none"}
+        # Restore default styles for nav components so they become visible
+        left_nav_style = {}
+        center_nav_style = {}
+        return main_style, overlay_style, left_nav_style, center_nav_style
     else:
-        return {"display": "none"}, {"display": "flex", "flexDirection": "column", "alignItems": "center", "justifyContent": "center", "height": "100%"}
-
+        # Space selection overlay is active
+        main_style = {"display": "none"}
+        overlay_style = {
+            "display": "flex",
+            "flexDirection": "column",
+            "alignItems": "center",
+            "justifyContent": "center",
+            "height": "100%"
+        }
+        # Hide nav components
+        left_nav_style = {"display": "none"}
+        center_nav_style = {"display": "none"}
+        return main_style, overlay_style, left_nav_style, center_nav_style
 # Add clientside callback for scrolling to bottom of chat when insight is generated
 app.clientside_callback(
     """
@@ -896,8 +915,8 @@ def set_root_style(selected_space_id):
 )
 def update_space_select_title(spaces):
     if not spaces:
-        return [html.Span(className="space-select-spinner"), "Loading Genie Spaces..."]
-    return "Select a Genie Space"
+        return [html.Span(className="space-select-spinner"), "Loading Agents..."]
+    return "Select an Agent"
 
 @app.callback(
     Output("query-tooltip", "className"),
