@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 app = dash.Dash(
     __name__,
     external_stylesheets=[dbc.themes.BOOTSTRAP],
-    title="BI Agent"
+    title="Genie Agent"
 )
 
 # Add default welcome text that can be customized
@@ -100,7 +100,7 @@ app.layout = html.Div([
             html.Div([
                 html.Div([
                     html.Div(className="company-logo"),
-                    html.H3("BI Agent Platform", className="main-title"),
+                    html.H3("Genie Agent Platform", className="main-title"),
                     html.Div([
                         html.Span(className="space-select-spinner"),
                         "Loading Agents..."
