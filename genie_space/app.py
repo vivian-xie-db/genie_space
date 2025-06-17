@@ -547,6 +547,7 @@ def get_model_response(trigger_data, current_messages, chat_history, selected_sp
     [Output("sidebar", "className"),
      Output("new-chat-button", "style"),
      Output("sidebar-new-chat-button", "style"),
+     Output("change-space-button", "style"),
      Output("logo-container", "className"),
      Output("nav-left", "className"),
      Output("left-component", "className"),
@@ -560,12 +561,12 @@ def toggle_sidebar(n_clicks, current_sidebar_class, current_left_component_class
     if n_clicks:
         if "sidebar-open" in current_sidebar_class:
             # Sidebar is closing
-            return "sidebar", {"display": "flex"}, {"display": "none"}, "logo-container", "nav-left", "left-component", "main-content"
+            return "sidebar", {"display": "flex"}, {"display": "none"}, {"display": "flex"}, "logo-container", "nav-left", "left-component", "main-content"
         else:
             # Sidebar is opening
-            return "sidebar sidebar-open", {"display": "none"}, {"display": "flex"}, "logo-container logo-container-open", "nav-left nav-left-open", "left-component left-component-open", "main-content main-content-shifted"
+            return "sidebar sidebar-open", {"display": "none"}, {"display": "flex"}, {"display": "none"}, "logo-container logo-container-open", "nav-left nav-left-open", "left-component left-component-open", "main-content main-content-shifted"
     # Initial state
-    return current_sidebar_class, {"display": "flex"}, {"display": "none"}, "logo-container", "nav-left", "left-component", current_main_content_class
+    return current_sidebar_class, {"display": "flex"}, {"display": "none"}, {"display": "flex"}, "logo-container", "nav-left", "left-component", current_main_content_class
 
 # Add callback for chat item selection
 @app.callback(
