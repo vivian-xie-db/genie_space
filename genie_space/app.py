@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 app = dash.Dash(
     __name__,
     external_stylesheets=[dbc.themes.BOOTSTRAP],
-    title="Genie Agent"
+    title="BI Agent"
 )
 
 # Add default welcome text that can be customized
@@ -39,7 +39,7 @@ app.layout = html.Div([
         dcc.Store(id="selected-space-id", data=None),
         dcc.Store(id="spaces-list", data=[]),
         dcc.Store(id="conversation-id-store", data=None),
-        dcc.Store(id="user-email-store", data=None),
+        dcc.Store(id="username-store", data=None),
         # Top navigation bar - now fixed at the top
         html.Div([
             # Left component containing both nav-left and sidebar
@@ -56,7 +56,7 @@ app.layout = html.Div([
                         html.Img(src="assets/plus_icon.svg", className="new-chat-icon"),
                         html.Div("New chat", className="new-chat-text")
                     ], id="sidebar-new-chat-button", className="new-chat-button",disabled=False)
-                ], id="nav-left", className="nav-left"),
+                ], id="nav-left", className="nav-left", style={"display": "none"}), # Initially hidden
 
                 # Sidebar
                 html.Div([
@@ -73,11 +73,11 @@ app.layout = html.Div([
                     id="logo-container",
                     className="logo-container"
                 )
-            ], id="nav-center", className="nav-center"),
+            ], id="nav-center", className="nav-center", style={"display": "none"}), # Initially hidden
             html.Div([
                 html.Div(className="user-avatar"),
                 html.Div(
-                    id="user-email-display",
+                    id="username-display",
                     style={'color': 'black', 'fontSize': '1em'}
                 ),
                 html.A(
@@ -100,7 +100,7 @@ app.layout = html.Div([
             html.Div([
                 html.Div([
                     html.Div(className="company-logo"),
-                    html.H3("Genie Agent Platform", className="main-title"),
+                    html.H3("BI Agent Platform", className="main-title"),
                     html.Div([
                         html.Span(className="space-select-spinner"),
                         "Loading Agents..."
@@ -519,7 +519,7 @@ def get_model_response(trigger_data, current_messages, chat_history, selected_sp
         # Update chat history with both user message and bot response
         if chat_history and len(chat_history) > 0:
             chat_history[0]["messages"] = current_messages[:-1] + [bot_response]
-        return current_messages[:-1] + [bot_response], chat_history, {"trigger": False, "message": ""}, False, new_conv_id
+        return current_messages[:-1] + [bot_response], chat_history, {"trigger": False, "message": ""} , False, new_conv_id
 
     except Exception as e:
         error_msg = f"Sorry, I encountered an error: {str(e)}. Please try again later."
@@ -838,7 +838,8 @@ def update_welcome_content_on_load(selected_space_id, spaces):
         Output("main-content", "style", allow_duplicate=True),
         Output("space-select-container", "style", allow_duplicate=True),
         Output("left-component", "style"),
-        Output("nav-center", "style")
+        Output("nav-center", "style"),
+        Output("nav-left", "style")
     ],
     Input("selected-space-id", "data"),
     prevent_initial_call=True
@@ -848,10 +849,11 @@ def toggle_main_ui(selected_space_id):
         # Main content view is active
         main_style = {"display": "block"}
         overlay_style = {"display": "none"}
-        # Restore default styles for nav components so they become visible
-        left_nav_style = {}
-        center_nav_style = {}
-        return main_style, overlay_style, left_nav_style, center_nav_style
+        # Ensure nav components are visible in main content area
+        left_component_style = {"display": "flex"}
+        center_nav_style = {"display": "flex"}
+        nav_left_style = {"display": "flex"}
+        return main_style, overlay_style, left_component_style, center_nav_style, nav_left_style
     else:
         # Space selection overlay is active
         main_style = {"display": "none"}
@@ -863,9 +865,10 @@ def toggle_main_ui(selected_space_id):
             "height": "100%"
         }
         # Hide nav components
-        left_nav_style = {"display": "none"}
+        left_component_style = {"display": "none"}
         center_nav_style = {"display": "none"}
-        return main_style, overlay_style, left_nav_style, center_nav_style
+        nav_left_style = {"display": "none"}
+        return main_style, overlay_style, left_component_style, center_nav_style, nav_left_style
 # Add clientside callback for scrolling to bottom of chat when insight is generated
 app.clientside_callback(
     """
@@ -930,29 +933,31 @@ def update_query_tooltip_class(query_running):
     else:
         return "query-tooltip"
 
-# Callback to fetch user email and store it
+# Callback to fetch username and store it
 @app.callback(
-    Output("user-email-store", "data"),
+    Output("username-store", "data"),
     Input("root-container", "children"), # Trigger on initial load of the app
     prevent_initial_call=False
 )
-def fetch_user_email(_):
+def fetch_username(_):
     try:
-        headers = request.headers
-        user_email = headers.get('X-Forwarded-Email')
-        return user_email
+        username = request.headers.get("X-Forwarded-Preferred-Username", "").split("@")[0]
+        username = username.split(".")
+        username = [part[0].upper() + part[1:] for part in username]
+        username = " ".join(username)
+        return username
     except Exception as e:
-        logger.error(f"Error fetching user email: {e}")
+        logger.error(f"Error fetching username: {e}")
         return None
 
-# Callback to update the user email display div
+# Callback to update the username display div
 @app.callback(
-    Output("user-email-display", "children"),
-    Input("user-email-store", "data"),
+    Output("username-display", "children"),
+    Input("username-store", "data"),
     prevent_initial_call=False
 )
-def update_user_email_display(user_email):
-    return user_email
+def update_username_display(username):
+    return username
 
 if __name__ == "__main__":
     app.run_server(debug=False)
