@@ -35,6 +35,9 @@ body {
 
 .main-title {
     padding-left: 2.5%;
+    color: #0b5289;
+    font-weight: 700;
+    font-family: sans-serif;
 }
 
 /* Top navigation */
@@ -56,13 +59,18 @@ body {
 
 .nav-left {
     justify-content: space-between;
-    margin: 8px 16px;
+    margin: 16px 16px;
+    flex-direction: column;
+    gap: 28px;
+
 }
 
 .nav-left-open {
     min-width: 280px;
     justify-content: flex-start;
     padding-right: 16px;
+    flex-direction: row;
+    margin: 6px 16px;
 }
 
 .nav-center {
@@ -152,11 +160,11 @@ body {
     left: 0;
     z-index: 10;
     height: 100vh;
+    background-color: rgb(248, 250, 252);
 }
 
 .left-component-open {
     width: 300px;
-    background-color: #FFFFFF;
     border-right: 1px solid #DCDCDC;
 }
 
@@ -164,7 +172,6 @@ body {
 .sidebar {
     width: 0;
     height: calc(100vh - 48px);
-    background-color: #FFFFFF;
     overflow: hidden;
     padding: 0;
     white-space: nowrap;
@@ -232,7 +239,7 @@ body {
     top: 0;
     height: 100%;
     width: 30px;
-    background: linear-gradient(to right, rgba(255,255,255,0), rgba(255,255,255,1) 90%);
+    background: linear-gradient(to right, rgba(255,255,255,0), rgb(248,250,252) 90% 90%);
     pointer-events: none;
 }
 
@@ -254,7 +261,7 @@ body {
     padding: 6px 12px;
     border: 1px solid #C0CDD8;
     border-radius: 4px;
-    background-color: transparent;
+    background-color: #FFF;
     color: #11171C;
     font-size: 13px;
     cursor: pointer;
@@ -998,7 +1005,7 @@ input:disabled, button:disabled {
     font-size: 13px;
     color: #11171C;
     cursor: pointer;
-    height: 28px;
+    height: 32px;
     display: flex;
     align-items: center;
     transition: all 0.2s ease;
@@ -1354,25 +1361,25 @@ input:disabled, button:disabled {
 .space-select-container {
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: start;
     justify-content: center;
-    height: 100vh;
-    background: #f8fafc;
+    background: #fff;
+    margin-left: 5%;
+    height: 100%;
 }
 
 .space-select-card {
     background: #fff;
     border-radius: 16px;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.08), 0 1.5px 4px rgba(0,0,0,0.04);
     padding: 48px 40px 32px 40px;
-    min-width: 400px;
+    width: 500px;
     display: flex;
     flex-direction: column;
     gap: 24px;
 }
 
 .space-select-title {
-    font-size: 1rem;
+    font-size: 1.5rem;
     font-weight: 500;
     margin-bottom: -20px;
     color: #1A1A1A;
@@ -1394,7 +1401,6 @@ input:disabled, button:disabled {
 
 .space-select-button {
     padding: 6px 20px;
-    border-radius: 5px;
     border: 1px solid #2771aa;
     background: #2771aa;
     color: #fff;
@@ -1402,8 +1408,9 @@ input:disabled, button:disabled {
     font-weight: 600;
     cursor: pointer;
     transition: background 0.2s, border 0.2s;
-    width: 94%;
-    margin: auto;
+    border-radius: 20px;
+    width: 40%;
+    margin-left: 2%;
 }
 .space-select-button:hover {
     background: #357ABD;

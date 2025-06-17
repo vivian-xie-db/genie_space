@@ -91,7 +91,7 @@ app.layout = html.Div([
                 )
             , html.Div(className="company-logo")
             ], className="nav-right")
-        ], className="top-nav", style={"position": "fixed", "top": "0", "left": "0", "width": "100%", "zIndex": "1001", "backgroundColor": "#f8fafc"}), # Added style for fixed header
+        ], className="top-nav", style={"position": "fixed", "top": "0", "left": "0", "width": "100%", "zIndex": "1001"}), # Added style for fixed header
 
         # Main content wrapper (includes space overlay and main chat)
         # This wrapper will have a margin-top equal to the fixed header's height
@@ -100,7 +100,7 @@ app.layout = html.Div([
             html.Div([
                 html.Div([
                     html.Div(className="company-logo"),
-                    html.H3("BI Agent Platform", className="main-title"),
+                    html.H1("BI Agent Platform", className="main-title"),
                     html.Div([
                         html.Span(className="space-select-spinner"),
                         "Loading Agents..."
@@ -857,13 +857,7 @@ def toggle_main_ui(selected_space_id):
     else:
         # Space selection overlay is active
         main_style = {"display": "none"}
-        overlay_style = {
-            "display": "flex",
-            "flexDirection": "column",
-            "alignItems": "center",
-            "justifyContent": "center",
-            "height": "100%"
-        }
+        overlay_style = {"display": "flex"}
         # Hide nav components
         left_component_style = {"display": "none"}
         center_nav_style = {"display": "none"}
