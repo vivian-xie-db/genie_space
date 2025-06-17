@@ -35,7 +35,7 @@ body {
 
 .main-title {
     padding-left: 2.5%;
-    color: #0b5289;
+    color: #191970;
     font-weight: 700;
     font-family: sans-serif;
 }
@@ -116,7 +116,7 @@ body {
 .user-avatar {
     width: 24px;
     height: 24px;
-    background-color: #434A93;
+    background-color: #191970;
     background-image: url("user.png");
     background-size: contain;
     background-repeat: no-repeat;
@@ -326,6 +326,7 @@ body {
     width: 100%;
     font-size: 22px;
     font-weight: 600;
+    color: #191970;
     align-self: flex-start;
     text-align: left;
     line-height: 28px;
@@ -1361,15 +1362,18 @@ input:disabled, button:disabled {
     flex-direction: column;
     align-items: start;
     justify-content: center;
-    background: #fff;
-    margin-left: 5%;
+    background-image: url("background.svg");
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center;
     height: 100%;
 }
 
 .space-select-card {
-    background: #fff;
     border-radius: 16px;
     padding: 48px 40px 32px 40px;
+    margin-left: 5%;
+    margin-top: -5%;
     width: 500px;
     display: flex;
     flex-direction: column;
@@ -1377,7 +1381,7 @@ input:disabled, button:disabled {
 }
 
 .space-select-title {
-    font-size: 1.5rem;
+    font-size: 1.2rem;
     font-weight: 500;
     margin-bottom: -20px;
     color: #1A1A1A;
@@ -1399,8 +1403,8 @@ input:disabled, button:disabled {
 
 .space-select-button {
     padding: 6px 20px;
-    border: 1px solid #2771aa;
-    background: #2771aa;
+    border: 1px solid #00B7F1;
+    background: #00B7F1;
     color: #fff;
     font-size: 14px;
     font-weight: 600;

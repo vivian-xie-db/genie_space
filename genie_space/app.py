@@ -111,7 +111,8 @@ app.layout = html.Div([
                     dcc.Dropdown(id="space-dropdown", options=[], placeholder="Choose an Agent", className="space-select-dropdown", optionHeight=40, searchable=True),
                     html.Button("Explore Agent", id="select-space-button", className="space-select-button"),
                     html.Div(id="space-select-error", className="space-select-error")
-                ], className="space-select-card")
+                ], className="space-select-card"),
+                html.Div(className="blue-wave-footer")
             ], id="space-select-container", className="space-select-container", style={"height": "100%", "top": "0"}),
 
             # Main content area
@@ -764,7 +765,6 @@ def generate_insights(n_clicks, btn_id, chat_history):
 def fetch_spaces(_):
     try:
         headers = request.headers
-        # token = os.environ.get("DATABRICKS_TOKEN")
         token = headers.get('X-Forwarded-Access-Token')
         host = os.environ.get("DATABRICKS_HOST")
         client = GenieClient(host=host, space_id="", token=token)
@@ -781,7 +781,7 @@ def fetch_spaces(_):
 )
 def update_space_dropdown(spaces):
     if not spaces:
-        return []
+        return [{"label": "No available agents", "value": "no_spaces_found", "disabled": True}]
     options = []
     for s in spaces:
         title = s.get('title', '')
@@ -809,7 +809,7 @@ def select_space(n_clicks, space_id, spaces):
     if not n_clicks:
         return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
     if not space_id:
-        return dash.no_update, {"display": "flex", "flexDirection": "column", "alignItems": "center", "justifyContent": "center", "height": "100%"}, {"display": "none"}, "Please select an Agent.", dash.no_update, dash.no_update
+        return dash.no_update, {"display": "flex", "flexDirection": "column", "alignItems": "start", "justifyContent": "center", "height": "100%"}, {"display": "none"}, "Please select an Agent.", dash.no_update, dash.no_update
     # Find the selected space's title and description
     selected = next((s for s in spaces if s["space_id"] == space_id), None)
     title = selected["title"] if selected and selected.get("title") else DEFAULT_WELCOME_TITLE
