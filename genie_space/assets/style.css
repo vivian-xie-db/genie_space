@@ -74,7 +74,7 @@ body {
 }
 
 .nav-center {
-    margin-left: 100px;
+    margin-left: 50px;
     justify-content: flex-start;
     position: absolute;
 }
@@ -133,7 +133,7 @@ body {
 /* Main content area */
 .main-content {
     display: flex;
-    height: calc(100vh - 48px);
+    height: calc(100vh - 60px);
     position: relative;
     margin-left: 0;
     transition: margin-left 0.3s ease;
@@ -184,7 +184,7 @@ body {
 }
 
 .logo-container-open {
-    margin-left: 200px;
+    margin-left: 240px;
 }
 
 .sidebar-header {
@@ -1002,8 +1002,6 @@ input:disabled, button:disabled {
     border: 1px solid #C0CDD8;
     border-radius: 4px;
     padding: 4px 12px;
-    font-size: 13px;
-    color: #11171C;
     cursor: pointer;
     height: 32px;
     display: flex;

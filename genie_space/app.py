@@ -51,11 +51,15 @@ app.layout = html.Div([
                     ], id="sidebar-toggle", className="nav-button"),
                     html.Button([
                         html.Img(src="assets/plus_icon.svg", className="new-chat-icon")
-                    ], id="new-chat-button", className="nav-button",disabled=False),
+                    ], id="new-chat-button", className="nav-button",disabled=False, title="New chat"),
                     html.Button([
                         html.Img(src="assets/plus_icon.svg", className="new-chat-icon"),
                         html.Div("New chat", className="new-chat-text")
-                    ], id="sidebar-new-chat-button", className="new-chat-button",disabled=False)
+                    ], id="sidebar-new-chat-button", className="new-chat-button",disabled=False),
+                    html.Button([
+                        html.Img(src="assets/change.png", style={'height': '16px'})
+                    ], id="change-space-button", className="nav-button",disabled=False, title="Change Agent")
+
                 ], id="nav-left", className="nav-left", style={"display": "none"}), # Initially hidden
 
                 # Sidebar
@@ -68,9 +72,9 @@ app.layout = html.Div([
             ], id="left-component", className="left-component"),
 
             html.Div([
-                html.Div(
-                    html.Button("Change Agent", id="change-space-button", className="logout-button"),
-                    id="logo-container",
+                html.Div([
+                    html.Div(className="company-logo")
+                    ], id="logo-container",
                     className="logo-container"
                 )
             ], id="nav-center", className="nav-center", style={"display": "none"}), # Initially hidden
@@ -81,15 +85,14 @@ app.layout = html.Div([
                     style={'color': 'black', 'fontSize': '1em'}
                 ),
                 html.A(
-                    html.Button(
-                        "Logout",
+                    html.Button([html.Img(src="assets/logout_icon.svg")],
                         id="logout-button",
-                        className="logout-button"
+                        className="logout-button",
+                        title="Logout"
                     ),
                     href=f"https://{os.getenv('DATABRICKS_HOST')}/login.html",
                     className="logout-link"
                 )
-            , html.Div(className="company-logo")
             ], className="nav-right")
         ], className="top-nav", style={"position": "fixed", "top": "0", "left": "0", "width": "100%", "zIndex": "1001"}), # Added style for fixed header
 
