@@ -1,20 +1,26 @@
-/* Hide all scrollbars globally */
+/* Enhanced: Modernized global scrollbar styling for consistency */
 * {
-    -ms-overflow-style: none !important;  /* IE and Edge */
-    scrollbar-width: none !important;     /* Firefox */
+    box-sizing: border-box;
 }
 
 *::-webkit-scrollbar {
-    display: none !important;  /* Chrome, Safari and Opera */
+    width: 6px;
+    height: 6px;
 }
 
-/* Remove any other scrollbar styling that might conflict */
-::-webkit-scrollbar,
-::-webkit-scrollbar-track,
-::-webkit-scrollbar-thumb {
-    display: none !important;
-    width: 0 !important;
-    height: 0 !important;
+*::-webkit-scrollbar-track {
+    background: #f1f3f5;
+    border-radius: 3px;
+}
+
+*::-webkit-scrollbar-thumb {
+    background: #b0b8c1;
+    border-radius: 3px;
+    transition: background 0.2s ease;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background: #6b7280;
 }
 
 body {
@@ -27,12 +33,19 @@ body {
 
 }
 
+.main-title {
+    padding-left: 2.5%;
+    color: #191970;
+    font-weight: 700;
+    font-family: sans-serif;
+}
+
 /* Top navigation */
 .top-nav {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    height: 48px;
+    height: 60px;
     padding: 0 16px;
     gap: 8px;
 }
@@ -40,24 +53,30 @@ body {
 .nav-left, .nav-right {
     display: flex;
     align-items: center;
-    height: 32px;
+    height: 45px;
     gap: 28px;
 }
 
 .nav-left {
     justify-content: space-between;
-    margin: 8px 16px;
+    margin: 16px 16px;
+    flex-direction: column;
+    gap: 28px;
+
 }
 
 .nav-left-open {
     min-width: 280px;
     justify-content: flex-start;
     padding-right: 16px;
+    flex-direction: row;
+    margin: 6px 16px;
 }
 
 .nav-center {
-    margin-left: 100px;
+    margin-left: 50px;
     justify-content: flex-start;
+    position: absolute;
 }
 
 .nav-right {
@@ -65,6 +84,8 @@ body {
     align-items: center;
     gap: 12px;
     margin-right: 16px;
+    position: absolute;
+    right: 0;
 }
 
 .nav-button {
@@ -95,7 +116,11 @@ body {
 .user-avatar {
     width: 24px;
     height: 24px;
-    background-color: #434A93;
+    background-color: #191970;
+    background-image: url("user.png");
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
     border-radius: 50%;
     display: flex;
     justify-content: center;
@@ -108,7 +133,7 @@ body {
 /* Main content area */
 .main-content {
     display: flex;
-    height: calc(100vh - 48px);
+    height: calc(100vh - 60px);
     position: relative;
     margin-left: 0;
     transition: margin-left 0.3s ease;
@@ -135,11 +160,11 @@ body {
     left: 0;
     z-index: 10;
     height: 100vh;
+    background-color: rgb(248, 250, 252);
 }
 
 .left-component-open {
     width: 300px;
-    background-color: #FFFFFF;
     border-right: 1px solid #DCDCDC;
 }
 
@@ -147,7 +172,6 @@ body {
 .sidebar {
     width: 0;
     height: calc(100vh - 48px);
-    background-color: #FFFFFF;
     overflow: hidden;
     padding: 0;
     white-space: nowrap;
@@ -160,7 +184,7 @@ body {
 }
 
 .logo-container-open {
-    margin-left: 200px;
+    margin-left: 240px;
 }
 
 .sidebar-header {
@@ -215,7 +239,7 @@ body {
     top: 0;
     height: 100%;
     width: 30px;
-    background: linear-gradient(to right, rgba(255,255,255,0), rgba(255,255,255,1) 90%);
+    background: linear-gradient(to right, rgba(255,255,255,0), rgb(248,250,252) 90% 90%);
     pointer-events: none;
 }
 
@@ -237,7 +261,7 @@ body {
     padding: 6px 12px;
     border: 1px solid #C0CDD8;
     border-radius: 4px;
-    background-color: transparent;
+    background-color: #FFF;
     color: #11171C;
     font-size: 13px;
     cursor: pointer;
@@ -271,25 +295,23 @@ body {
 
 .chat-content {
     flex: 1;
-    padding: 16px;
     display: flex;
     flex-direction: column;
     width: 100%;
     height: 100%;
     margin-bottom: 30px;
-    overflow-y: scroll;
 }
 
 /* Welcome container */
 .welcome-container {
     max-width: 800px;
     margin: auto;
-    padding-top: 100px;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     justify-content: flex-start;
     gap: 28px;
+    padding-top: calc(100vh - 65em);
 }
 
 .welcome-container.hidden {
@@ -304,6 +326,7 @@ body {
     width: 100%;
     font-size: 22px;
     font-weight: 600;
+    color: #191970;
     align-self: flex-start;
     text-align: left;
     line-height: 28px;
@@ -436,7 +459,7 @@ body {
 /* Fixed input container */
 .fixed-input-container {
     width: 100%;
-    max-width: 720px;
+    max-width: 780px;
     height: 50px;
     position: relative;
     border: 1px solid #C0CDD8;
@@ -481,7 +504,7 @@ body {
 
 .message {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     width: 100%;
 }
 
@@ -501,7 +524,7 @@ body {
 
 .message-text {
     border-radius: 12px;
-    font-size: 13px;
+    font-size: 14px;
     line-height: 1.5;
     word-wrap: break-word;
     overflow-wrap: break-word;
@@ -509,14 +532,14 @@ body {
 }
 
 .user-message .message-text {
-    padding: 2px 0px 12px 40px;
+    padding: 2px 0px 12px 20px;
     width: 100%;
 }
 
 .bot-message .message-content {
     border-radius: 12px;
     width: 100%;
-    padding: 2px 0px 12px 40px;
+    padding: 2px 0px 12px 20px;
     word-wrap: break-word;
     overflow-wrap: break-word;
     white-space: normal;
@@ -749,7 +772,7 @@ button:focus, .suggestion-button:focus {
 
 /* Scrollbar styling */
 ::-webkit-scrollbar {
-    width: 8px;
+    width: 6px;
     position: absolute;
     right: 0;
 }
@@ -859,8 +882,8 @@ body::-webkit-scrollbar {
     padding: 4px 0;
 }
 .model-avatar {
-    width: 20px;
-    height: 20px;
+    width: 24px;
+    height: 24px;
     display: flex;
     border-radius: 4px;
     color: white;
@@ -947,7 +970,7 @@ input:disabled, button:disabled {
     margin-bottom: 16px;
     border-radius: 2px;
     padding: 5px 10px;
-    font-size: 12px;
+    font-size: 13px;
     border: none;
     
 }
@@ -980,10 +1003,8 @@ input:disabled, button:disabled {
     border: 1px solid #C0CDD8;
     border-radius: 4px;
     padding: 4px 12px;
-    font-size: 13px;
-    color: #11171C;
     cursor: pointer;
-    height: 28px;
+    height: 32px;
     display: flex;
     align-items: center;
     transition: all 0.2s ease;
@@ -1339,37 +1360,40 @@ input:disabled, button:disabled {
 .space-select-container {
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: start;
     justify-content: center;
-    height: 100vh;
-    background: #f8fafc;
+    background-image: url("background.svg");
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center;
+    height: 100%;
 }
 
 .space-select-card {
-    background: #fff;
     border-radius: 16px;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.08), 0 1.5px 4px rgba(0,0,0,0.04);
     padding: 48px 40px 32px 40px;
-    min-width: 400px;
+    margin-left: 5%;
+    margin-top: -5%;
+    width: 500px;
     display: flex;
     flex-direction: column;
-    align-items: center;
     gap: 24px;
 }
 
 .space-select-title {
-    font-size: 2rem;
-    font-weight: 700;
-    margin-bottom: 12px;
+    font-size: 1.2rem;
+    font-weight: 500;
+    margin-bottom: -20px;
     color: #1A1A1A;
     letter-spacing: -1px;
+    margin-left: 10px;
 }
 
 .space-select-dropdown {
-    width: 480px;         /* wider than before */
+    width: 400px;         
     min-width: 400px;
     max-width: 600px;
-    font-size: 15px;
+    font-size: 14px;
     padding: 8px 12px;
 }
 .space-select-dropdown:focus {
@@ -1378,16 +1402,17 @@ input:disabled, button:disabled {
 }
 
 .space-select-button {
-    margin-top: 8px;
-    padding: 8px 32px;
-    border-radius: 8px;
-    border: 1px solid #2771aa;
-    background: #2771aa;
+    padding: 6px 20px;
+    border: 1px solid #00B7F1;
+    background: #00B7F1;
     color: #fff;
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 600;
     cursor: pointer;
     transition: background 0.2s, border 0.2s;
+    border-radius: 20px;
+    width: 40%;
+    margin-left: 2%;
 }
 .space-select-button:hover {
     background: #357ABD;
@@ -1403,14 +1428,23 @@ input:disabled, button:disabled {
 
 .space-select-spinner {
     display: inline-block;
-    width: 24px;
-    height: 24px;
+    width: 18px;
+    height: 18px;
     border: 2px solid transparent;
     border-top: 2px solid #040404;
     border-right: 2px solid #111212;
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin-right: 18px;
+}
+
+.company-logo {
+    width: 150px;
+    height: 50px;
+    background-image: url("bi_logo.png");
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
 }
 
 @keyframes spin {
