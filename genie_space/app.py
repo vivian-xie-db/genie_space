@@ -60,7 +60,7 @@ app.layout = html.Div([
                         html.Img(src="assets/change.png", style={'height': '16px'})
                     ], id="change-space-button", className="nav-button",disabled=False, title="Change Agent")
 
-                ], id="nav-left", className="nav-left", style={"display": "none"}), # Initially hidden
+                ], id="nav-left", className="nav-left"),
 
                 # Sidebar
                 html.Div([
@@ -73,28 +73,29 @@ app.layout = html.Div([
 
             html.Div([
                 html.Div([
-                    html.Div(className="company-logo")
+                    html.Div(className="company-logo-black")
                     ], id="logo-container",
                     className="logo-container"
                 )
-            ], id="nav-center", className="nav-center", style={"display": "none"}), # Initially hidden
+            ], id="nav-center", className="nav-center"),
             html.Div([
                 html.Div(className="user-avatar"),
                 html.Div(
-                    id="username-display",
-                    style={'color': 'black', 'fontSize': '1em'}
+                    id="username-display-nav",
+                    className="username-display",
+                    style={'color': 'black'}
                 ),
                 html.A(
-                    html.Button([html.Img(src="assets/logout_icon.svg")],
-                        id="logout-button",
-                        className="logout-button",
+                    html.Button([html.Img(src="assets/logout_icon_black.svg")],
+                        id="logout-button-nav",
+                        className="logout-button-black",
                         title="Logout"
                     ),
                     href=f"https://{os.getenv('DATABRICKS_HOST')}/login.html",
                     className="logout-link"
                 )
-            ], className="nav-right")
-        ], className="top-nav", style={"position": "fixed", "top": "0", "left": "0", "width": "100%", "zIndex": "1001"}), # Added style for fixed header
+            ], id="nav-right", className="nav-right"),
+        ], id="top-nav", className="top-nav", style={"display": "none"}), # Initially hidden
 
         # Main content wrapper (includes space overlay and main chat)
         # This wrapper will have a margin-top equal to the fixed header's height
@@ -103,16 +104,47 @@ app.layout = html.Div([
             html.Div([
                 html.Div([
                     html.Div(className="company-logo"),
-                    html.H1("BI Agent Platform", className="main-title"),
                     html.Div([
-                        html.Span(className="space-select-spinner"),
-                        "Loading Agents..."
-                    ], id="space-select-title", className="space-select-title"),
-                    dcc.Dropdown(id="space-dropdown", options=[], placeholder="Choose an Agent", className="space-select-dropdown", optionHeight=40, searchable=True),
-                    html.Button("Explore Agent", id="select-space-button", className="space-select-button"),
+                        html.Div(className="user-avatar"),
+                        html.Div(
+                            id="username-display-overlay",
+                            className="username-display",
+                            style={'color': 'white'}
+                        ),
+                        html.A(
+                            html.Button([html.Img(src="assets/logout_icon.svg")],
+                                id="logout-button-overlay",
+                                className="logout-button",
+                                title="Logout"
+                            ),
+                            href=f"https://{os.getenv('DATABRICKS_HOST')}/login.html",
+                            className="logout-link"
+                        )
+                    ], className="nav-right"),
+                    html.Div("BI Agent Platform", className="main-title"),
+                    html.Div("Empowering insights through conversation", className="space-select-tagline"),
+                    html.Div(id="welcome-user-greeting", className="greeting-title"),
+                    html.Div([
+                        dcc.Dropdown(id="space-dropdown", options=[], placeholder="Choose an Agent", className="space-select-dropdown", optionHeight=40, searchable=True,
+                        style={'z-index': 1000}
+                        ),
+                        html.Button("Explore Agent", id="select-space-button", className="space-select-button", disabled= True)
+                        ],className="explore-agent-container"),
+                    html.Div([
+                        html.A(
+                            html.Button("Documentation", className="request-support-button"),
+                            href="https://jda365.sharepoint.com/:b:/r/sites/O365-AnalyticsJDA/Shared%20Documents/Cognitive%20Analytics/BI%20Agent%20Documentation.pdf?csf=1&web=1&e=7xdXIe",
+                            target="_blank"
+                        ),
+                        html.Span("|", style={'color': 'white', 'fontSize': '1em', 'padding': '0 0.5em'}),
+                        html.A(
+                            html.Button("Request Support", className="request-support-button"),
+                            href="https://jdaswin.service-now.com/jdasp/?id=sc_cat_item&sys_id=997bc9dc1baea590766441dce54bcb6e&sysparm_category=afc4a6211b6aa1d0766441dce54bcbd6",
+                            target="_blank"
+                        )
+                    ], className="support-links"),
                     html.Div(id="space-select-error", className="space-select-error")
-                ], className="space-select-card"),
-                html.Div(className="blue-wave-footer")
+                ], className="space-select-card")
             ], id="space-select-container", className="space-select-container", style={"height": "100%", "top": "0"}),
 
             # Main content area
@@ -190,7 +222,7 @@ app.layout = html.Div([
                     ], id="fixed-input-wrapper", className="fixed-input-wrapper"),
                 ], id="chat-container", className="chat-container"),
             ], id="main-content", className="main-content", style={"display": "none"}), # display is controlled by callbacks
-        ], style={"marginTop": "60px", "height": "calc(100vh - 60px)", "position": "relative"}), # New wrapper for main content and overlay
+        ], style={"height": "100vh", "position": "relative"}), # New wrapper for main content and overlay
 
         html.Div(id='dummy-output'),
         dcc.Store(id="chat-trigger", data={"trigger": False, "message": ""}),
@@ -303,10 +335,10 @@ def handle_all_inputs(s1_clicks, s2_clicks, s3_clicks, s4_clicks, send_clicks, s
 
     # Create user message with user info
     user_message = html.Div([
+        html.Div(user_input, className="message-text"),
         html.Div([
             html.Div(className="user-avatar")
-        ], className="user-info"),
-        html.Div(user_input, className="message-text")
+        ], className="user-info")
     ], className="user-message message")
 
     # Add the user message to the chat
@@ -399,8 +431,23 @@ def get_model_response(trigger_data, current_messages, chat_history, selected_sp
             table_uuid = None # No df to store
 
         if isinstance(response, str):
-            response = response.replace("`", "")
-            content = dcc.Markdown(response, className="message-text", style={"fontFamily": "Segoe UI", "fontSize": "14px"})
+            if response == user_input:
+                content = dcc.Markdown("Your request returned no results. This may happen if the data doesn’t exist or if you don’t have permission to view it.", className="message-text-bot")
+            else:
+                # Escape square brackets to prevent markdown auto-linking
+                import re
+                processed_response = response
+            
+                # Escape all square brackets to prevent markdown from interpreting them as links
+                processed_response = processed_response.replace('[', '\\[').replace(']', '\\]')
+            
+                # Escape parentheses to prevent markdown from interpreting them as links
+                processed_response = processed_response.replace('(', '\\(').replace(')', '\\)')
+            
+                # Escape angle brackets to prevent markdown from interpreting them as links
+                processed_response = processed_response.replace('<', '\\<').replace('>', '\\>')
+            
+                content = dcc.Markdown(processed_response, className="message-text-bot")
         else:
             df_response = pd.DataFrame(response)
             if df_response.shape == (1, 1):
@@ -412,18 +459,18 @@ def get_model_response(trigger_data, current_messages, chat_history, selected_sp
                     query_section = html.Div([
                         html.Div([
                             html.Button([
-                                html.Span("Show code", id={"type": "toggle-text", "index": query_index}, style={"fontFamily": "Segoe UI", "display": "none"})
+                                html.Span("Show code", id={"type": "toggle-text", "index": query_index}, style={"display": "none"})
                             ], id={"type": "toggle-query", "index": query_index}, className="toggle-query-button", n_clicks=0)
                         ], className="toggle-query-container"),
                         html.Div([
-                            html.Pre([html.Code(formatted_sql, className="sql-code", style={"fontFamily": "Segoe UI"})], className="sql-pre")
+                            html.Pre([html.Code(formatted_sql, className="sql-code")], className="sql-pre")
                         ], id={"type": "query-code", "index": query_index}, className="query-code-container hidden")
                     ], id={"type": "query-section", "index": query_index}, className="query-section")
 
                 content = html.Div([
-                    dcc.Markdown(markdown_response, style={"fontFamily": "Segoe UI", "fontSize": "14px"}),
+                    dcc.Markdown(markdown_response),
                     query_section
-                ]) if query_section else dcc.Markdown(markdown_response, style={"fontFamily": "Segoe UI", "fontSize": "14px"})
+                ]) if query_section else dcc.Markdown(markdown_response)
 
             else:
                 table_data = df_response.to_dict('records')
@@ -443,13 +490,13 @@ def get_model_response(trigger_data, current_messages, chat_history, selected_sp
                     export_headers="display",
                     style_table={'maxHeight': '300px', 'overflowY': 'auto', 'overflowX': 'auto', 'width': '95%'},
                     style_data={
-                        'fontFamily': 'Segoe UI', 'fontSize': '14px', 'textAlign': 'left',
+                        'textAlign': 'left',
                         'padding': '5px', 'height': '40px', 'maxHeight': '40px',
                         'lineHeight': '14px', 'overflow': 'hidden', 'textOverflow': 'ellipsis',
                         'whiteSpace': 'nowrap', 'verticalAlign': 'top'
                     },
                     style_header={
-                        'fontFamily': 'Segoe UI', 'fontSize': '14px', 'fontWeight': 'bold',
+                        'fontWeight': 'bold',
                         'textAlign': 'left', 'backgroundColor': '#f8f8f8', 'height': '40px',
                         'maxHeight': '40px', 'lineHeight': '14px', 'overflow': 'hidden',
                         'textOverflow': 'ellipsis', 'whiteSpace': 'nowrap', 'verticalAlign': 'top'
@@ -475,7 +522,7 @@ def get_model_response(trigger_data, current_messages, chat_history, selected_sp
                     query_section = html.Div([
                         html.Div([
                             html.Button([
-                                html.Span("Show code", id={"type": "toggle-text", "index": query_index}, style={"fontFamily": "Segoe UI", "display": "none"})
+                                html.Span("Show code", id={"type": "toggle-text", "index": query_index}, style={"display": "none"})
                             ],
                             id={"type": "toggle-query", "index": query_index},
                             className="toggle-query-button",
@@ -532,7 +579,7 @@ def get_model_response(trigger_data, current_messages, chat_history, selected_sp
                 html.Div(className="model-avatar")
             ], className="model-info"),
             html.Div([
-                html.Div(error_msg, className="message-text")
+                html.Div(error_msg, className="message-text-bot")
             ], className="message-content")
         ], className="bot-message message")
 
@@ -541,7 +588,6 @@ def get_model_response(trigger_data, current_messages, chat_history, selected_sp
             chat_history[0]["messages"] = current_messages[:-1] + [error_response]
 
         return current_messages[:-1] + [error_response], chat_history, {"trigger": False, "message": ""}, False, new_conv_id
-
 
 # Toggle sidebar and speech button
 @app.callback(
@@ -633,8 +679,7 @@ app.clientside_callback(
 
 # It now only resets the chat state, not the selected space.
 @app.callback(
-    [Output("welcome-container", "className", allow_duplicate=True),
-     Output("chat-messages", "children", allow_duplicate=True),
+    [Output("chat-messages", "children", allow_duplicate=True),
      Output("chat-trigger", "data", allow_duplicate=True),
      Output("query-running-store", "data", allow_duplicate=True),
      Output("chat-history-store", "data", allow_duplicate=True),
@@ -654,13 +699,12 @@ def reset_to_welcome(n_clicks1, n_clicks2, chat_messages, chat_trigger, chat_his
                     chat_list, query_running, session_data):
     # Reset session when starting a new chat
     new_session_data = {"current_session": None}
-    return ("welcome-container visible", [], {"trigger": False, "message": ""},
+    return ([], {"trigger": False, "message": ""},
             False, chat_history_store, new_session_data, None)
 
 @app.callback(
     [
         Output("selected-space-id", "data", allow_duplicate=True),
-        Output("welcome-container", "className", allow_duplicate=True),
         Output("chat-messages", "children", allow_duplicate=True),
         Output("chat-trigger", "data", allow_duplicate=True),
         Output("query-running-store", "data", allow_duplicate=True),
@@ -676,7 +720,7 @@ def reset_to_welcome(n_clicks1, n_clicks2, chat_messages, chat_trigger, chat_his
 )
 def change_space_and_reset(n_clicks, chat_history):
     if not n_clicks:
-        return [dash.no_update] * 8
+        return [dash.no_update] * 7
 
     # This logic is from reset_to_welcome
     new_session_data = {"current_session": None}
@@ -684,7 +728,6 @@ def change_space_and_reset(n_clicks, chat_history):
     # Return tuple must have 8 values
     return (
         None,  # for selected-space-id -> shows overlay
-        "welcome-container visible",  # for welcome-container
         [],  # for chat-messages
         {"trigger": False, "message": ""},  # for chat-trigger
         False,  # for query-running-store
@@ -792,12 +835,24 @@ def update_space_dropdown(spaces):
         options.append({"label": title, "value": space_id})
     return options
 
+
+#Enable / Disable the "Explore Agent" button based on the dropdown value
+
+@app.callback(
+    Output("select-space-button", "disabled"),
+    Input("space-dropdown", "value"),
+    prevent_initial_call=False
+)
+def enable_select_space_button(selected_value ):
+    if selected_value is None:
+        return True
+    return False
+
 # Handle space selection
 @app.callback(
     [Output("selected-space-id", "data", allow_duplicate=True),
      Output("space-select-container", "style"),
      Output("main-content", "style"),
-     Output("space-select-error", "children"),
      Output("welcome-title", "children", allow_duplicate=True), # Allow duplicate
      Output("welcome-description", "children", allow_duplicate=True)], # Allow duplicate
     Input("select-space-button", "n_clicks"),
@@ -807,43 +862,21 @@ def update_space_dropdown(spaces):
 )
 def select_space(n_clicks, space_id, spaces):
     if not n_clicks:
-        return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
     if not space_id:
-        return dash.no_update, {"display": "flex", "flexDirection": "column", "alignItems": "start", "justifyContent": "center", "height": "100%"}, {"display": "none"}, "Please select an Agent.", dash.no_update, dash.no_update
+        return dash.no_update, {"display": "flex", "flexDirection": "column", "alignItems": "start", "justifyContent": "center", "height": "100%"}, {"display": "none"}, dash.no_update, dash.no_update
     # Find the selected space's title and description
     selected = next((s for s in spaces if s["space_id"] == space_id), None)
     title = selected["title"] if selected and selected.get("title") else DEFAULT_WELCOME_TITLE
     description = selected["description"] if selected and selected.get("description") else DEFAULT_WELCOME_DESCRIPTION
-    return space_id, {"display": "none"}, {"display": "block"}, "", title, description
-
-# New callback to update welcome title and description on load or space change
-@app.callback(
-    [Output("welcome-title", "children", allow_duplicate=True),
-     Output("welcome-description", "children", allow_duplicate=True)],
-    [Input("selected-space-id", "data"),
-     Input("spaces-list", "data")],
-    prevent_initial_call=True
-)
-def update_welcome_content_on_load(selected_space_id, spaces):
-    if not selected_space_id or not spaces:
-        return DEFAULT_WELCOME_TITLE, DEFAULT_WELCOME_DESCRIPTION
-
-    selected = next((s for s in spaces if s["space_id"] == selected_space_id), None)
-    if selected:
-        title = selected.get("title", DEFAULT_WELCOME_TITLE)
-        description = selected.get("description", DEFAULT_WELCOME_DESCRIPTION)
-        return title, description
-
-    return DEFAULT_WELCOME_TITLE, DEFAULT_WELCOME_DESCRIPTION
+    return space_id, {"display": "none"}, {"display": "block"}, title, description
 
 # Add a callback to control visibility of main-content and space-select-container
 @app.callback(
     [
         Output("main-content", "style", allow_duplicate=True),
         Output("space-select-container", "style", allow_duplicate=True),
-        Output("left-component", "style"),
-        Output("nav-center", "style"),
-        Output("nav-left", "style")
+        Output("top-nav", "style")
     ],
     Input("selected-space-id", "data"),
     prevent_initial_call=True
@@ -853,20 +886,14 @@ def toggle_main_ui(selected_space_id):
         # Main content view is active
         main_style = {"display": "block"}
         overlay_style = {"display": "none"}
-        # Ensure nav components are visible in main content area
-        left_component_style = {"display": "flex"}
-        center_nav_style = {"display": "flex"}
-        nav_left_style = {"display": "flex"}
-        return main_style, overlay_style, left_component_style, center_nav_style, nav_left_style
+        nav_top_style = {"display": "flex", "position": "fixed", "top": "0", "left": "0", "width": "100%", "zIndex": "1001"}
+        return main_style, overlay_style, nav_top_style
     else:
         # Space selection overlay is active
         main_style = {"display": "none"}
         overlay_style = {"display": "flex"}
-        # Hide nav components
-        left_component_style = {"display": "none"}
-        center_nav_style = {"display": "none"}
-        nav_left_style = {"display": "none"}
-        return main_style, overlay_style, left_component_style, center_nav_style, nav_left_style
+        nav_top_style = {"display": "none"}
+        return main_style, overlay_style, nav_top_style
 # Add clientside callback for scrolling to bottom of chat when insight is generated
 app.clientside_callback(
     """
@@ -890,13 +917,12 @@ app.clientside_callback(
 
 @app.callback(
     Output("selected-space-id", "data", allow_duplicate=True),
-    Input("logout-button", "n_clicks"),
+    [Input("logout-button-nav", "n_clicks"),
+     Input("logout-button-overlay", "n_clicks")],
     prevent_initial_call=True
 )
-def logout_and_clear_space(n_clicks):
-    if n_clicks:
-        return None
-    return dash.no_update
+def logout_and_clear_space(n_clicks_nav, n_clicks_overlay):
+    return None
 
 # Add a callback to control the root-container style to prevent scrolling when overlay is visible
 @app.callback(
@@ -909,15 +935,15 @@ def set_root_style(selected_space_id):
     return {"height": "auto"}
 
 # Add a callback to update the title based on spaces-list
-@app.callback(
-    Output("space-select-title", "children"),
-    Input("spaces-list", "data"),
-    prevent_initial_call=False
-)
-def update_space_select_title(spaces):
-    if not spaces:
-        return [html.Span(className="space-select-spinner"), "Loading Agents..."]
-    return "Select an Agent"
+# @app.callback(
+#     Output("space-select-title", "children"),
+#     Input("spaces-list", "data"),
+#     prevent_initial_call=False
+# )
+# def update_space_select_title(spaces):
+#     if not spaces:
+#         return [html.Span(className="space-select-spinner"), "Loading Agents..."]
+#     return "Select an Agent"
 
 @app.callback(
     Output("query-tooltip", "className"),
@@ -950,12 +976,19 @@ def fetch_username(_):
 
 # Callback to update the username display div
 @app.callback(
-    Output("username-display", "children"),
+    [Output("username-display-nav", "children"),
+    Output("username-display-overlay", "children"),
+    Output("welcome-user-greeting", "children")],
     Input("username-store", "data"),
     prevent_initial_call=False
 )
 def update_username_display(username):
-    return username
+    if username:
+        first_name = username.split(" ")[0]
+        greeting = f"Hello, {first_name}"
+        return username, username, greeting
+
+    return None, None, None
 
 if __name__ == "__main__":
     app.run_server(debug=False)

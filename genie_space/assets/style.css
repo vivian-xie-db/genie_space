@@ -24,20 +24,26 @@
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont,Segoe UI, Roboto, Helvetica Neue, Arial, Noto Sans, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji;
+    font-family: Segoe UI, Calibre, Arial;
     margin: 0;
     padding: 0;
     color: #11171C;
     background-color: #FFFFFF;
-    font-size: 13px;
+    font-size: 14px;
 
 }
 
 .main-title {
-    padding-left: 2.5%;
-    color: #191970;
-    font-weight: 700;
-    font-family: sans-serif;
+    color: #FFFFFF;
+    font-size: 4rem;
+    padding: 0% 10%;
+}
+
+.greeting-title {
+    margin: auto;
+    font-size: 32px;
+    color: white;
+    padding-top: 1%;
 }
 
 /* Top navigation */
@@ -70,7 +76,7 @@ body {
     justify-content: flex-start;
     padding-right: 16px;
     flex-direction: row;
-    margin: 6px 16px;
+    margin: 10px 16px;
 }
 
 .nav-center {
@@ -86,11 +92,12 @@ body {
     margin-right: 16px;
     position: absolute;
     right: 0;
+    top: 1%;
 }
 
 .nav-button {
-    width: 32px;
-    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
     border: none;
     background: transparent;
     display: flex;
@@ -102,7 +109,7 @@ body {
 }
 
 .nav-button:hover {
-    background-color: #F5F5F5;
+    background-color:#0000000f;
 }
 
 .logo-container {
@@ -116,8 +123,25 @@ body {
 .user-avatar {
     width: 24px;
     height: 24px;
-    background-color: #191970;
+    background-color: #000e4e;
     background-image: url("user.png");
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.model-avatar {
+    width: 24px;
+    height: 24px;
+    background-color: #000e4e;
+    background-image: url("bot_icon.svg");
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
@@ -283,6 +307,7 @@ body {
 .chat-container {
     margin: 0 auto;
     padding: 16px;
+    padding-top: 60px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -326,7 +351,7 @@ body {
     width: 100%;
     font-size: 22px;
     font-weight: 600;
-    color: #191970;
+    color: #000e4e;
     align-self: flex-start;
     text-align: left;
     line-height: 28px;
@@ -512,6 +537,8 @@ body {
     align-items: flex-start;
     text-wrap: wrap;
     align-self: flex-start;
+    justify-content: flex-end;
+    gap: 16px;
 }
 
 .bot-message {
@@ -523,7 +550,17 @@ body {
 }
 
 .message-text {
-    border-radius: 12px;
+    border-radius: 8px 8px 0px 8px;
+    font-size: 14px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+    background: #d5eafc;
+}
+
+.message-text-bot {
+    border-radius: 8px;
     font-size: 14px;
     line-height: 1.5;
     word-wrap: break-word;
@@ -532,14 +569,13 @@ body {
 }
 
 .user-message .message-text {
-    padding: 2px 0px 12px 20px;
-    width: 100%;
+    padding: 6px 6px 6px 20px;
 }
 
 .bot-message .message-content {
     border-radius: 12px;
     width: 100%;
-    padding: 2px 0px 12px 20px;
+    padding: 4px 0px 12px 20px;
     word-wrap: break-word;
     overflow-wrap: break-word;
     white-space: normal;
@@ -881,26 +917,7 @@ body::-webkit-scrollbar {
     gap: 16px;
     padding: 4px 0;
 }
-.model-avatar {
-    width: 24px;
-    height: 24px;
-    display: flex;
-    border-radius: 4px;
-    color: white;
-    background-image: url("genie_bot_icon.png");
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
-}
-.model-avatar-wrapper {
-    width: 24px;
-    height: 24px;
-    display: flex;
-    border-radius: 4px;
-    background-color: #434A93;
-    justify-content: center;
-    align-items: center;
-}
+
 .viz-container {
     display: flex;
     flex-direction: column;
@@ -1000,19 +1017,30 @@ input:disabled, button:disabled {
 
 .logout-button {
     background-color: transparent;
-    border: 1px solid #C0CDD8;
+    border: none;
     border-radius: 4px;
-    padding: 4px 12px;
     cursor: pointer;
-    height: 32px;
     display: flex;
     align-items: center;
-    transition: all 0.2s ease;
 }
 
 .logout-button:hover {
-    background-color: rgba(34, 114, 180, 0.08);
-    border-color: #A0B0C0;
+    background-color: #ffffff4d;
+    cursor: pointer;
+}
+
+.logout-button-black {
+    background-color: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+}
+
+.logout-button-black:hover {
+    background-color: #00000017;
+    cursor: pointer;
 }
 
 .logout-link {
@@ -1360,9 +1388,8 @@ input:disabled, button:disabled {
 .space-select-container {
     display: flex;
     flex-direction: column;
-    align-items: start;
     justify-content: center;
-    background-image: url("background.svg");
+    background-image: url("background150dpi.jpg");
     background-size: cover;
     background-repeat: no-repeat;
     background-position: center;
@@ -1370,39 +1397,38 @@ input:disabled, button:disabled {
 }
 
 .space-select-card {
-    border-radius: 16px;
-    padding: 48px 40px 32px 40px;
-    margin-left: 5%;
-    margin-top: -5%;
-    width: 500px;
+    width: 100%;
     display: flex;
     flex-direction: column;
     gap: 24px;
+    margin: auto;
 }
 
 .space-select-title {
     font-size: 1.2rem;
     font-weight: 500;
-    margin-bottom: -20px;
     color: #1A1A1A;
-    letter-spacing: -1px;
+    letter-spacing: -0.5px;
     margin-left: 10px;
 }
 
 .space-select-dropdown {
-    width: 400px;         
-    min-width: 400px;
+    width: 350px;         
     max-width: 600px;
     font-size: 14px;
-    padding: 8px 12px;
+    padding: 8px 0px;
 }
 .space-select-dropdown:focus {
     border-color: #4299E0;
     outline: none;
 }
+.space-select-dropdown .Select-menu-outer {
+    max-height: 140px;
+    overflow-y: scroll;
+}
 
 .space-select-button {
-    padding: 6px 20px;
+    padding: 6px 10px;
     border: 1px solid #00B7F1;
     background: #00B7F1;
     color: #fff;
@@ -1410,13 +1436,27 @@ input:disabled, button:disabled {
     font-weight: 600;
     cursor: pointer;
     transition: background 0.2s, border 0.2s;
-    border-radius: 20px;
-    width: 40%;
-    margin-left: 2%;
+    border-radius: 5px;
+    height: 37px;
 }
 .space-select-button:hover {
-    background: #357ABD;
-    border-color: #357ABD;
+    background: #000e4e;
+    border-color: #000e4e;
+}
+
+.space-select-tagline {
+    display: flex;
+    padding-right: 8%;
+    flex-direction: column;
+    justify-content: center;
+    font-size: 1.2rem;
+    text-align: left;
+    font-style: italic;
+    margin-right: 9%;
+    margin-top: -30px;
+    color: white;
+    padding: 1% 10%;
+    width: 100%;
 }
 
 .space-select-error {
@@ -1438,10 +1478,49 @@ input:disabled, button:disabled {
     margin-right: 18px;
 }
 
+.support-links {
+    position: absolute;
+    bottom: 10px;
+    right: 5px;
+}
+
+.request-support-button {
+    background: transparent;
+    color: #fff;
+    box-shadow: none;
+    border: none;
+}
+
+.request-support-button:hover {
+    color: #00B7F1;
+    cursor: pointer;
+}
+
+.explore-agent-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 2%;
+}
+
 .company-logo {
-    width: 150px;
+    width: 155px;
     height: 50px;
     background-image: url("bi_logo.png");
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    transform: scale(1.2);
+    position: absolute;
+    top: 2%;
+    left: 2%;
+}
+
+.company-logo-black {
+    width: 155px;
+    height: 50px;
+    background-image: url(bi_logo_black.png);
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
