@@ -1,174 +1,119 @@
 import pandas as pd
 import time
-import requests
 import os
 from dotenv import load_dotenv
 from typing import Dict, Any, Optional, List, Union, Tuple
 import logging
-import backoff
-import uuid
-from token_minter import TokenMinter
+from databricks.sdk import WorkspaceClient
+from databricks.sdk.core import Config
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 load_dotenv()
 
 # Load environment variables
-SPACE_ID = os.environ.get("SPACE_ID")
 DATABRICKS_HOST = os.environ.get("DATABRICKS_HOST")
-CLIENT_ID = os.environ.get("DATABRICKS_CLIENT_ID")
-CLIENT_SECRET = os.environ.get("DATABRICKS_CLIENT_SECRET")
-
-token_minter = TokenMinter(
-    client_id=CLIENT_ID,
-    client_secret=CLIENT_SECRET,
-    host=DATABRICKS_HOST
-)
-
 
 class GenieClient:
-    def __init__(self, host: str, space_id: str):
+    def __init__(self, host: str, space_id: str, token: str):
         self.host = host
         self.space_id = space_id
-        self.update_headers()
+        self.token = token
         
-        self.base_url = f"https://{host}/api/2.0/genie/spaces/{space_id}"
-    
-    def update_headers(self) -> None:
-        """Update headers with fresh token from token_minter"""
-        self.headers = {
-            "Authorization": f"Bearer {token_minter.get_token()}",
-            "Content-Type": "application/json"
-        }
-    
-    @backoff.on_exception(
-        backoff.expo,
-        Exception,  
-        max_tries=5,
-        factor=2,
-        jitter=backoff.full_jitter,
-        on_backoff=lambda details: logger.warning(
-            f"API request failed. Retrying in {details['wait']:.2f} seconds (attempt {details['tries']})"
+        # Configure SDK with retry settings and explicit PAT auth
+        config = Config(
+            host=f"https://{host}",
+            token=token,
+            auth_type="pat",  # Explicitly set authentication type to PAT
+            retry_timeout_seconds=300,  # 5 minutes total retry timeout
+            max_retries=5,              # Maximum number of retries
+            retry_delay_seconds=2,      # Initial delay between retries
+            retry_backoff_factor=2      # Exponential backoff factor
         )
-    )
+        
+        self.client = WorkspaceClient(config=config)
+    
     def start_conversation(self, question: str) -> Dict[str, Any]:
         """Start a new conversation with the given question"""
-        self.update_headers()  # Refresh token before API call
-        url = f"{self.base_url}/start-conversation"
-        payload = {"content": question}
-        
-        response = requests.post(url, headers=self.headers, json=payload)
-        response.raise_for_status()
-        return response.json()
-    
-    @backoff.on_exception(
-        backoff.expo,
-        Exception,  # Retry on any exception
-        max_tries=5,
-        factor=2,
-        jitter=backoff.full_jitter,
-        on_backoff=lambda details: logger.warning(
-            f"API request failed. Retrying in {details['wait']:.2f} seconds (attempt {details['tries']})"
+        response = self.client.genie.start_conversation(
+            space_id=self.space_id,
+            content=question
         )
-    )
+        return {
+            "conversation_id": response.conversation_id,
+            "message_id": response.message_id
+        }
+    
     def send_message(self, conversation_id: str, message: str) -> Dict[str, Any]:
         """Send a follow-up message to an existing conversation"""
-        self.update_headers()  # Refresh token before API call
-        url = f"{self.base_url}/conversations/{conversation_id}/messages"
-        payload = {"content": message}
-        
-        response = requests.post(url, headers=self.headers, json=payload)
-        response.raise_for_status()
-        return response.json()
-
-    @backoff.on_exception(
-        backoff.expo,
-        Exception,  # Retry on any exception
-        max_tries=5,
-        factor=2,
-        jitter=backoff.full_jitter,
-        on_backoff=lambda details: logger.warning(
-            f"API request failed. Retrying in {details['wait']:.2f} seconds (attempt {details['tries']})"
+        response = self.client.genie.create_message(
+            space_id=self.space_id,
+            conversation_id=conversation_id,
+            content=message
         )
-    )
+        return {
+            "message_id": response.message_id
+        }
+
     def get_message(self, conversation_id: str, message_id: str) -> Dict[str, Any]:
         """Get the details of a specific message"""
-        self.update_headers()  # Refresh token before API call
-        url = f"{self.base_url}/conversations/{conversation_id}/messages/{message_id}"
-        
-        response = requests.get(url, headers=self.headers)
-        response.raise_for_status()
-        return response.json()
-
-    @backoff.on_exception(
-        backoff.expo,
-        Exception,  # Retry on any exception
-        max_tries=5,
-        factor=2,
-        jitter=backoff.full_jitter,
-        on_backoff=lambda details: logger.warning(
-            f"API request failed. Retrying in {details['wait']:.2f} seconds (attempt {details['tries']})"
+        response = self.client.genie.get_message(
+            space_id=self.space_id,
+            conversation_id=conversation_id,
+            message_id=message_id
         )
-    )
+        return response.as_dict()
+
     def get_query_result(self, conversation_id: str, message_id: str, attachment_id: str) -> Dict[str, Any]:
         """Get the query result using the attachment_id endpoint"""
-        self.update_headers()  # Refresh token before API call
-        url = f"{self.base_url}/conversations/{conversation_id}/messages/{message_id}/attachments/{attachment_id}/query-result"
-        
-        response = requests.get(url, headers=self.headers)
-        response.raise_for_status()
-        result = response.json()
+        response = self.client.genie.get_message_attachment_query_result(
+            space_id=self.space_id,
+            conversation_id=conversation_id,
+            message_id=message_id,
+            attachment_id=attachment_id
+        )
         
         # Extract data_array from the correct nested location
         data_array = []
-        if 'statement_response' in result:
-            if 'result' in result['statement_response']:
-                data_array = result['statement_response']['result'].get('data_array', [])
+        if hasattr(response, 'statement_response') and response.statement_response is not None:
+            if (hasattr(response.statement_response, 'result') and 
+                response.statement_response.result is not None):
+                data_array = response.statement_response.result.data_array or []
+            else:
+                raise ValueError("Query execution failed: No result data available. The query may have failed or returned no data.")
+        else:
+            raise ValueError("Query execution failed: No statement response available from the server.")
+        
+        # Extract schema safely
+        schema = {}
+        if (hasattr(response, 'statement_response') and response.statement_response is not None and
+            hasattr(response.statement_response, 'manifest') and response.statement_response.manifest is not None and
+            hasattr(response.statement_response.manifest, 'schema') and response.statement_response.manifest.schema is not None):
+            schema = response.statement_response.manifest.schema.as_dict()
             
         return {
-                    'data_array': data_array,
-                    'schema': result.get('statement_response', {}).get('manifest', {}).get('schema', {})
-                }
+            'data_array': data_array,
+            'schema': schema
+        }
 
-    @backoff.on_exception(
-        backoff.expo,
-        Exception,  # Retry on any exception
-        max_tries=5,
-        factor=2,
-        jitter=backoff.full_jitter,
-        on_backoff=lambda details: logger.warning(
-            f"API request failed. Retrying in {details['wait']:.2f} seconds (attempt {details['tries']})"
-        )
-    )
     def execute_query(self, conversation_id: str, message_id: str, attachment_id: str) -> Dict[str, Any]:
         """Execute a query using the attachment_id endpoint"""
-        self.update_headers()  # Refresh token before API call
-        url = f"{self.base_url}/conversations/{conversation_id}/messages/{message_id}/attachments/{attachment_id}/execute-query"
-        
-        response = requests.post(url, headers=self.headers)
-        response.raise_for_status()
-        return response.json()
-    
+        response = self.client.genie.execute_query(
+            space_id=self.space_id,
+            conversation_id=conversation_id,
+            message_id=message_id,
+            attachment_id=attachment_id
+        )
+        return response.as_dict()
 
     def wait_for_message_completion(self, conversation_id: str, message_id: str, timeout: int = 300, poll_interval: int = 2) -> Dict[str, Any]:
         """
         Wait for a message to reach a terminal state (COMPLETED, ERROR, etc.).
-        
-        Args:
-            conversation_id: The ID of the conversation
-            message_id: The ID of the message
-            timeout: Maximum time to wait in seconds
-            poll_interval: Time between status checks in seconds
-            
-        Returns:
-            The completed message
         """
-        
         start_time = time.time()
-        attempt = 1
         
         while time.time() - start_time < timeout:
-            
             message = self.get_message(conversation_id, message_id)
             status = message.get("status")
             
@@ -176,34 +121,38 @@ class GenieClient:
                 return message
                 
             time.sleep(poll_interval)
-            attempt += 1
             
         raise TimeoutError(f"Message processing timed out after {timeout} seconds")
 
-def start_new_conversation(question: str) -> Tuple[str, Union[str, pd.DataFrame], Optional[str]]:
+    def list_spaces(self) -> list:
+        """List all Genie spaces available to the user."""
+        all_spaces = []
+        next_page_token = None
+
+        while True:
+            response = self.client.genie.list_spaces(page_size=1000, page_token=next_page_token)
+            if hasattr(response, 'spaces') and response.spaces:
+                all_spaces.extend([space.as_dict() for space in response.spaces])
+            next_page_token = getattr(response, 'next_page_token', None)
+            if not next_page_token:
+                break
+        return all_spaces
+
+def start_new_conversation(question: str, token: str, space_id: str) -> Tuple[str, Union[str, pd.DataFrame], Optional[str]]:
     """
     Start a new conversation with Genie.
-    
-    Args:
-        question: The initial question
-        
-    Returns:
-        Tuple containing:
-        - conversation_id: The new conversation ID
-        - response: Either text or DataFrame response
-        - query_text: SQL query text if applicable, otherwise None
     """
-    
     client = GenieClient(
         host=DATABRICKS_HOST,
-        space_id=SPACE_ID
+        space_id=space_id,
+        token=token
     )
     
     try:
         # Start a new conversation
         response = client.start_conversation(question)
-        conversation_id = response.get("conversation_id")
-        message_id = response.get("message_id")
+        conversation_id = response["conversation_id"]
+        message_id = response["message_id"]
         
         # Wait for the message to complete
         complete_message = client.wait_for_message_completion(conversation_id, message_id)
@@ -216,30 +165,21 @@ def start_new_conversation(question: str) -> Tuple[str, Union[str, pd.DataFrame]
     except Exception as e:
         return None, f"Sorry, an error occurred: {str(e)}. Please try again.", None
 
-def continue_conversation(conversation_id: str, question: str) -> Tuple[Union[str, pd.DataFrame], Optional[str]]:
+def continue_conversation(conversation_id: str, question: str, token: str, space_id: str) -> Tuple[Union[str, pd.DataFrame], Optional[str]]:
     """
     Send a follow-up message in an existing conversation.
-    
-    Args:
-        conversation_id: The existing conversation ID
-        question: The follow-up question
-        
-    Returns:
-        Tuple containing:
-        - response: Either text or DataFrame response
-        - query_text: SQL query text if applicable, otherwise None
     """
     logger.info(f"Continuing conversation {conversation_id} with question: {question[:30]}...")
-    
     client = GenieClient(
         host=DATABRICKS_HOST,
-        space_id=SPACE_ID
+        space_id=space_id,
+        token=token
     )
     
     try:
         # Send follow-up message in existing conversation
         response = client.send_message(conversation_id, question)
-        message_id = response.get("message_id")
+        message_id = response["message_id"]
         
         # Wait for the message to complete
         complete_message = client.wait_for_message_completion(conversation_id, message_id)
@@ -262,17 +202,6 @@ def continue_conversation(conversation_id: str, question: str) -> Tuple[Union[st
 def process_genie_response(client, conversation_id, message_id, complete_message) -> Tuple[Union[str, pd.DataFrame], Optional[str]]:
     """
     Process the response from Genie
-    
-    Args:
-        client: The GenieClient instance
-        conversation_id: The conversation ID
-        message_id: The message ID
-        complete_message: The completed message response
-        
-    Returns:
-        Tuple containing:
-        - result: Either text or DataFrame response
-        - query_text: SQL query text if applicable, otherwise None
     """
     # Check attachments first
     attachments = complete_message.get("attachments", [])
@@ -307,24 +236,22 @@ def process_genie_response(client, conversation_id, message_id, complete_message
     
     return "No response available", None
 
-def genie_query(question: str) -> Union[Tuple[str, Optional[str]], Tuple[pd.DataFrame, str]]:
+def genie_query(question: str, token: str, space_id: str, conversation_id: Optional[str] = None) -> Union[Tuple[str, Union[str, pd.DataFrame], Optional[str]], Tuple[None, str, None]]:
     """
     Main entry point for querying Genie.
-    
-    Args:
-        question: The question to ask
-        
-    Returns:
-        Tuple containing either:
-        - (text_response, None) for text responses
-        - (dataframe, sql_query) for data responses
+    Starts a new conversation or continues an existing one.
     """
     try:
-        # Start a new conversation for each query
-        conversation_id, result, query_text = start_new_conversation(question)
-        return result, query_text
+        if conversation_id:
+            # Continue the existing conversation
+            result, query_text = continue_conversation(conversation_id, question, token, space_id)
+            # Return the existing conversation_id along with the new result
+            return conversation_id, result, query_text
+        else:
+            # Start a new conversation for the query
+            conversation_id, result, query_text = start_new_conversation(question, token, space_id)
+            return conversation_id, result, query_text
             
     except Exception as e:
         logger.error(f"Error in conversation: {str(e)}. Please try again.")
-        return f"Sorry, an error occurred: {str(e)}. Please try again.", None
-
+        return None, f"Sorry, an error occurred: {str(e)}. Please try again.", None
