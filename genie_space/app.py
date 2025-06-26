@@ -29,10 +29,6 @@ app = dash.Dash(
     title="BI Agent"
 )
 
-# Add default welcome text that can be customized
-DEFAULT_WELCOME_TITLE = "Welcome to Your Data Assistant"
-DEFAULT_WELCOME_DESCRIPTION = "Explore and analyze your data with AI-powered insights. Ask questions, discover trends, and make data-driven decisions."
-
 # Define the layout
 app.layout = html.Div([
     html.Div([
@@ -40,6 +36,7 @@ app.layout = html.Div([
         dcc.Store(id="spaces-list", data=[]),
         dcc.Store(id="conversation-id-store", data=None),
         dcc.Store(id="username-store", data=None),
+        dcc.Store(id="current-dataframe-uuid", data=None), # New Store to hold the UUID of the DataFrame for insight generation
         # Top navigation bar - now fixed at the top
         html.Div([
             # Left component containing both nav-left and sidebar
@@ -161,12 +158,11 @@ app.layout = html.Div([
 
                             # Add settings button with tooltip
                             html.Div([
-                                html.Div(id="welcome-title", className="welcome-message", children=DEFAULT_WELCOME_TITLE),
+                                html.Div(id="welcome-title", className="welcome-message"),
                             ], className="welcome-title-container"),
 
                             html.Div(id="welcome-description",
-                                    className="welcome-message-description",
-                                    children=DEFAULT_WELCOME_DESCRIPTION),
+                                    className="welcome-message-description"),
 
                             # Suggestion buttons with IDs
                             html.Div([
@@ -236,7 +232,43 @@ app.layout = html.Div([
         dcc.Store(id="chat-history-store", data=[]),
         dcc.Store(id="query-running-store", data=False),
         dcc.Store(id="session-store", data={"current_session": None}),
-        html.Div(id='dummy-insight-scroll')
+        html.Div(id='dummy-insight-scroll'),
+        dcc.Download(id="download-dataframe-csv"),
+
+        # New Insight Prompt Modal
+        dbc.Modal(
+            [
+                dbc.ModalHeader(dbc.ModalTitle("Generate Insights")),
+                dbc.ModalBody(
+                    [
+                        html.P("Review and modify the prompt for generating insights:"),
+                        dcc.Textarea(
+                            id="insight-prompt-textarea",
+                            value=(
+                                "You are a professional data analyst. Given the following table data, provide deep, actionable analysis for\n"
+                                "1. Key insights and trends.\n"
+                                "2. Notable patterns\n"
+                                "3. Business implications.\n"
+                                "Be thorough, professional, and concise.\n\n"
+                            ),
+                            style={"width": "100%", "height": "200px"},
+                        ),
+                        html.Div(id="insight-generation-status"), # To show loading/error messages
+                    ]
+                ),
+                dbc.ModalFooter([dbc.Button("Confirm", id="confirm-insight-prompt-button", className="confirm-button", n_clicks=0)],
+                style={
+                    "backgroundColor": "#e6e6e62e",
+                    "padding": "10px",
+                    "borderTop": "1px solid #ccc"
+                }
+                ),
+            ],
+            id="insight-prompt-modal",
+            is_open=False,
+            size="lg",
+            centered=True,
+        ),
     ], id="app-inner-layout"),
 ], id="root-container")
 
@@ -433,7 +465,9 @@ def get_model_response(trigger_data, current_messages, chat_history, selected_sp
                 table_uuid = str(uuid.uuid4())
                 chat_history[0].setdefault('dataframes', {})[table_uuid] = df.to_json(orient='split')
             else:
-                chat_history = [{"dataframes": {table_uuid: df.to_json(orient='split')}}]
+                # If chat_history is empty, initialize it with the new dataframe
+                table_uuid = str(uuid.uuid4())
+                chat_history = [{"dataframes": {table_uuid: df.to_json(orient='split')}, "messages": [], "queries": []}]
         else:
             table_uuid = None # No df to store
 
@@ -487,14 +521,14 @@ def get_model_response(trigger_data, current_messages, chat_history, selected_sp
                     {col: {'value': str(row[col]), 'type': 'markdown'} for col in df_response.columns}
                     for row in table_data
                 ]
-                header_tooltips = {col: {'value': col, 'type': 'markdown'} for col in df_response.columns}
+                # header_tooltips = {col: {'value': col, 'type': 'markdown'} for col in df_response.columns}
 
                 data_table = dash_table.DataTable(
                     id=f"table-{len(chat_history)}",
                     data=table_data,
                     columns=table_columns,
-                    export_format="csv",
-                    export_headers="display",
+                    sort_action="native",
+                    filter_action="native",
                     style_table={'maxHeight': '300px', 'overflowY': 'auto', 'overflowX': 'auto', 'width': '95%'},
                     style_data={
                         'textAlign': 'left',
@@ -504,7 +538,7 @@ def get_model_response(trigger_data, current_messages, chat_history, selected_sp
                     },
                     style_header={
                         'fontWeight': 'bold',
-                        'textAlign': 'left', 'backgroundColor': '#f8f8f8', 'height': '40px',
+                        'textAlign': 'center', 'backgroundColor': '#f8f8f8', 'height': '40px',
                         'maxHeight': '40px', 'lineHeight': '14px', 'overflow': 'hidden',
                         'textOverflow': 'ellipsis', 'whiteSpace': 'nowrap', 'verticalAlign': 'top'
                     },
@@ -517,7 +551,7 @@ def get_model_response(trigger_data, current_messages, chat_history, selected_sp
                         for col in df_response.columns
                     ],
                     tooltip_data=tooltip_data,
-                    tooltip_header=header_tooltips,
+                    # tooltip_header=header_tooltips,
                     tooltip_duration=None,
                     fill_width=False
                 )
@@ -544,6 +578,13 @@ def get_model_response(trigger_data, current_messages, chat_history, selected_sp
                         className="query-code-container hidden")
                     ], id={"type": "query-section", "index": query_index}, className="query-section")
 
+                export_button = html.Button(
+                    "Export as CSV",
+                    id={"type": "export-button", "index": table_uuid},
+                    className="insight-button",
+                    style={'marginRight': '16px'}
+                )
+
                 insight_button = html.Button(
                     "Generate Insights",
                     id={"type": "insight-button", "index": table_uuid},
@@ -558,8 +599,7 @@ def get_model_response(trigger_data, current_messages, chat_history, selected_sp
 
                 content = html.Div([
                     html.Div(data_table, style={'marginBottom': '10px'}),
-                    # query_section if query_section else None,
-                    insight_button,
+                    html.Div([export_button, insight_button], style={'display': 'flex'}),
                     insight_output
                 ])
 
@@ -594,6 +634,36 @@ def get_model_response(trigger_data, current_messages, chat_history, selected_sp
             chat_history[0]["messages"] = current_messages[:-1] + [error_response]
 
         return current_messages[:-1] + [error_response], chat_history, {"trigger": False, "message": ""}, False, new_conv_id
+
+# Callback to handle CSV export
+@app.callback(
+    Output("download-dataframe-csv", "data"),
+    Input({"type": "export-button", "index": ALL}, "n_clicks"),
+    State("chat-history-store", "data"),
+    prevent_initial_call=True,
+)
+def export_csv(n_clicks, chat_history):
+    ctx = dash.callback_context
+    if not ctx.triggered or not any(n_clicks):
+        return dash.no_update
+
+    triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
+    button_id_dict = json.loads(triggered_id)
+    table_uuid = button_id_dict["index"]
+
+    df = None
+    if chat_history:
+        for session in chat_history:
+            if 'dataframes' in session and table_uuid in session['dataframes']:
+                df_json = session['dataframes'][table_uuid]
+                df = pd.read_json(StringIO(df_json), orient='split')
+                break
+    
+    if df is None:
+        return dash.no_update
+
+    return dcc.send_data_frame(df.to_csv, f"exported_data_{table_uuid[:8]}.csv", index=False)
+
 
 # Toggle sidebar and speech button
 @app.callback(
@@ -757,6 +827,7 @@ def reset_query_running(chat_messages):
 # Add callback to disable input while query is running
 @app.callback(
     [Output("chat-input-fixed", "disabled"),
+     Output("mic-button", "disabled"),
      Output("send-button-fixed", "disabled"),
      Output("new-chat-button", "disabled"),
      Output("sidebar-new-chat-button", "disabled")],
@@ -765,7 +836,7 @@ def reset_query_running(chat_messages):
 )
 def toggle_input_disabled(query_running):
     # Disable input and buttons when query is running
-    return query_running, query_running, query_running, query_running
+    return query_running, query_running, query_running, query_running, query_running
 
 # Add callback for toggling SQL query visibility
 @app.callback(
@@ -779,31 +850,98 @@ def toggle_query_visibility(n_clicks):
         return "query-code-container visible", "Hide code"
     return "query-code-container hidden", "Show code"
 
-# Add callback for insight button
+# Callback to open the insight prompt modal and store the DataFrame UUID
 @app.callback(
-    Output({"type": "insight-output", "index": dash.dependencies.MATCH}, "children"),
-    Input({"type": "insight-button", "index": dash.dependencies.MATCH}, "n_clicks"),
-    State({"type": "insight-button", "index": dash.dependencies.MATCH}, "id"),
-    State("chat-history-store", "data"),
+    [Output("insight-prompt-modal", "is_open"),
+     Output("current-dataframe-uuid", "data")],
+    [Input({"type": "insight-button", "index": ALL}, "n_clicks")],
+    State({"type": "insight-button", "index": ALL}, "id"),
     prevent_initial_call=True
 )
-def generate_insights(n_clicks, btn_id, chat_history):
+def open_insight_modal(n_clicks_list, btn_ids_list):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return no_update, no_update
+
+    button_id = ctx.triggered[0]["prop_id"].split(".")[0]
+    # Check if any insight button was clicked
+    if any(n_clicks_list) and "insight-button" in button_id:
+        # Extract the index (which is the table_uuid) from the triggered button's id
+        triggered_btn_id = json.loads(button_id)
+        table_uuid = triggered_btn_id['index']
+        return True, table_uuid
+    return no_update, no_update
+
+# Callback to disable confirm button if textarea is empty
+@app.callback(
+    Output("confirm-insight-prompt-button", "disabled"),
+    Input("insight-prompt-textarea", "value"),
+    prevent_initial_call=False
+)
+def set_confirm_button_disabled(textarea_value):
+    return not bool(textarea_value and textarea_value.strip())
+
+# NEW CALLBACK: To close the modal immediately on confirm button click
+@app.callback(
+    Output("insight-prompt-modal", "is_open", allow_duplicate=True),
+    Input("confirm-insight-prompt-button", "n_clicks"),
+    prevent_initial_call=True
+)
+def close_modal_on_confirm(n_clicks):
+    if n_clicks:
+        return False # Close the modal immediately
+    return no_update
+
+# Callback to generate insights after prompt confirmation
+@app.callback(
+    [Output({"type": "insight-output", "index": ALL}, "children"),
+     Output("insight-generation-status", "children")],
+    [Input("confirm-insight-prompt-button", "n_clicks")],
+    [State("insight-prompt-textarea", "value"),
+     State("current-dataframe-uuid", "data"),
+     State("chat-history-store", "data")],
+    prevent_initial_call=True
+)
+def confirm_and_generate_insights(n_clicks, prompt_value, table_uuid, chat_history):
     if not n_clicks:
-        return None
-    table_id = btn_id["index"]
+        return no_update, no_update
+
+    insights_output_children = [no_update] * len(dash.callback_context.outputs_list[0])
+
+    if not table_uuid:
+        return insights_output_children, html.Div("Error: No data selected for insights.", style={"color": "red"})
+
     df = None
     if chat_history and len(chat_history) > 0:
-        df_json = chat_history[0].get('dataframes', {}).get(table_id)
-        if df_json:
-            df = pd.read_json(StringIO(df_json), orient='split')
+        for session in chat_history:
+            if 'dataframes' in session and table_uuid in session['dataframes']:
+                df_json = session['dataframes'][table_uuid]
+                df = pd.read_json(StringIO(df_json), orient='split')
+                break
+
     if df is None:
-        return html.Div("No data available for insights.", style={"color": "red"})
-    insights = call_llm_for_insights(df)
-    return html.Div(
-        dcc.Markdown(insights),
-        style={"marginTop": "32px", "background": "#f4f4f4", "padding": "16px", "borderRadius": "4px"},
-        className="insight-output"
-    )
+        return insights_output_children, html.Div("Error: Data not found for insights.", style={"color": "red"})
+    
+    # Show loading message
+    status_message = html.Div([html.Span(className="spinner"), html.Span("Generating insights...")])
+    
+    try:
+        insights = call_llm_for_insights(df, prompt=prompt_value)
+        
+        # Find the correct insight output component to update
+        for i, output_dict in enumerate(dash.callback_context.outputs_list[0]):
+            if output_dict['id']['index'] == table_uuid:
+                insights_output_children[i] = html.Div(
+                    dcc.Markdown(insights),
+                    style={"marginTop": "32px", "background": "#f4f4f4", "padding": "16px", "borderRadius": "4px"},
+                    className="insight-output"
+                )
+                break
+        
+        return insights_output_children, "" 
+    except Exception as e:
+        error_message = f"Error generating insights: {str(e)}"
+        return insights_output_children, html.Div(error_message, style={"color": "red"})
 
 # Callback to fetch spaces on load
 @app.callback(
@@ -873,8 +1011,8 @@ def select_space(n_clicks, space_id, spaces):
         return dash.no_update, {"display": "flex", "flexDirection": "column", "alignItems": "start", "justifyContent": "center", "height": "100%"}, {"display": "none"}, dash.no_update, dash.no_update
     # Find the selected space's title and description
     selected = next((s for s in spaces if s["space_id"] == space_id), None)
-    title = selected["title"] if selected and selected.get("title") else DEFAULT_WELCOME_TITLE
-    description = selected["description"] if selected and selected.get("description") else DEFAULT_WELCOME_DESCRIPTION
+    title = selected.get("title")
+    description = selected.get("description")
     return space_id, {"display": "none"}, {"display": "block"}, title, description
 
 # Add a callback to control visibility of main-content and space-select-container
@@ -917,7 +1055,7 @@ app.clientside_callback(
     }
     """,
     Output('dummy-insight-scroll', 'children'),
-    Input({'type': 'insight-output', 'index': dash.dependencies.ALL}, 'children'),
+    Input({'type': 'insight-output', 'index': ALL}, 'children'),
     prevent_initial_call=True
 )
 

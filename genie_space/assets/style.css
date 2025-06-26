@@ -983,20 +983,6 @@ input:disabled, button:disabled {
     border-radius: 4px;
 }
 
-.export {
-    margin-bottom: 16px;
-    border-radius: 6px;
-    padding: 5px 10px;
-    font-size: 13px;
-    border: none;
-    
-}
-
-/* Hover effect for the export button */
-.export:hover {
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
-}
-
 .insight-button {
     border: none;
     background: #f0f0f0;
@@ -1009,6 +995,21 @@ input:disabled, button:disabled {
 
 .insight-button:hover {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+}
+
+.confirm-button {
+    border: none;
+    background: #000e4e;
+    padding: 5px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-top: 10px;
+    font-size: 13px;
+    }
+
+.confirm-button:hover {
+    background: #00B7F1;
+    border-color: #00B7F1;
 }
 
 /* OR Option 2: Make the scrollbar more subtle */
