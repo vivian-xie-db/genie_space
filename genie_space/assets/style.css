@@ -365,7 +365,7 @@ body {
 }
 
 .chat-input {
-    width: calc(100% - 40px);
+    width: calc(100% - 80px); /* Adjusted width to make space for two buttons */
     border: none;
     outline: none;
     background-color: transparent;
@@ -494,7 +494,7 @@ body {
     box-shadow: 0px 2px 3px -1px rgba(0, 0, 0, 0.05), 0px 1px 0px 0px rgba(0, 0, 0, 0.02);
     display: flex;
     align-items: center;
-    transition: border-color 0.2s ease;  /* Add smooth transition */
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;  /* Add smooth transition */
 }
 
 .fixed-input-container:focus-within {
@@ -985,7 +985,7 @@ input:disabled, button:disabled {
 
 .export {
     margin-bottom: 16px;
-    border-radius: 2px;
+    border-radius: 6px;
     padding: 5px 10px;
     font-size: 13px;
     border: none;
@@ -994,6 +994,20 @@ input:disabled, button:disabled {
 
 /* Hover effect for the export button */
 .export:hover {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+}
+
+.insight-button {
+    border: none;
+    background: #f0f0f0;
+    padding: 5px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-top: 10px;
+    font-size: 13px;
+    }
+
+.insight-button:hover {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
 }
 
@@ -1529,4 +1543,31 @@ input:disabled, button:disabled {
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+}
+
+/* ADDED: Styles for Voice Dictation Feature */
+.fixed-input-container.hearing {
+    border-color: #4299E0;
+    box-shadow: 0 0 0 3px rgba(66, 153, 224, 0.4);
+}
+
+.input-button#mic-button.listening img {
+    animation: pulse-mic-icon 1.5s ease-in-out infinite;
+    /* This filter gives the icon a blue color when active */
+    filter: invert(48%) sepia(61%) saturate(2371%) hue-rotate(187deg) brightness(97%) contrast(97%);
+}
+
+@keyframes pulse-mic-icon {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.1);
+        opacity: 0.7;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
 }

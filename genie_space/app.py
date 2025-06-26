@@ -208,6 +208,13 @@ app.layout = html.Div([
                                 disabled=False
                             ),
                             html.Div([
+                                # ADDED: Microphone button for voice dictation
+                                html.Button(
+                                    html.Img(src="assets/mic_icon.svg", style={'width': '18px', 'height': '18px'}),
+                                    id="mic-button",
+                                    className="input-button",
+                                    title="Start/Stop Dictation"
+                                ),
                                 html.Button(
                                     id="send-button-fixed",
                                     className="input-button send-button",
@@ -468,8 +475,8 @@ def get_model_response(trigger_data, current_messages, chat_history, selected_sp
                     ], id={"type": "query-section", "index": query_index}, className="query-section")
 
                 content = html.Div([
-                    dcc.Markdown(markdown_response),
-                    query_section
+                    dcc.Markdown(markdown_response)
+                    # , query_section
                 ]) if query_section else dcc.Markdown(markdown_response)
 
             else:
@@ -540,8 +547,7 @@ def get_model_response(trigger_data, current_messages, chat_history, selected_sp
                 insight_button = html.Button(
                     "Generate Insights",
                     id={"type": "insight-button", "index": table_uuid},
-                    className="insight-button",
-                    style={"border": "none", "background": "#f0f0f0", "padding": "8px 16px", "borderRadius": "4px", "cursor": "pointer", "marginTop": "10px"}
+                    className="insight-button"
                 )
                 insight_output = dcc.Loading(
                     id={"type": "insight-loading", "index": table_uuid},
@@ -552,7 +558,7 @@ def get_model_response(trigger_data, current_messages, chat_history, selected_sp
 
                 content = html.Div([
                     html.Div(data_table, style={'marginBottom': '10px'}),
-                    query_section if query_section else None,
+                    # query_section if query_section else None,
                     insight_button,
                     insight_output
                 ])
