@@ -138,7 +138,48 @@ class GenieClient:
                 break
         return all_spaces
 
-def start_new_conversation(question: str, token: str, space_id: str) -> Tuple[str, Union[str, pd.DataFrame], Optional[str]]:
+def process_genie_response(client, conversation_id, message_id, complete_message) -> Tuple[Union[str, pd.DataFrame], Optional[str], Optional[str]]:
+    """
+    Process the response from Genie
+    Returns a tuple of (result, query_text, description)
+    """
+    # Check attachments first
+    attachments = complete_message.get("attachments", [])
+    for attachment in attachments:
+        attachment_id = attachment.get("attachment_id")
+        
+        # If there's text content in the attachment, return it
+        if "text" in attachment and "content" in attachment["text"]:
+            return attachment["text"]["content"], None, None
+        
+        # If there's a query, get the result
+        elif "query" in attachment:
+            query_info = attachment.get("query", {})
+            query_text = query_info.get("query", "")
+            description = query_info.get("description") # Extract description
+            
+            query_result = client.get_query_result(conversation_id, message_id, attachment_id)
+           
+            data_array = query_result.get('data_array', [])
+            schema = query_result.get('schema', {})
+            columns = [col.get('name') for col in schema.get('columns', [])]
+            
+            # If we have data, return as DataFrame
+            if data_array:
+                # If no columns from schema, create generic ones
+                if not columns and data_array and len(data_array) > 0:
+                    columns = [f"column_{i}" for i in range(len(data_array[0]))]
+                
+                df = pd.DataFrame(data_array, columns=columns)
+                return df, query_text, description # Return description along with df and query
+    
+    # If no attachments or no data in attachments, return text content
+    if 'content' in complete_message:
+        return complete_message.get('content', ''), None, None
+    
+    return "No response available", None, None
+
+def start_new_conversation(question: str, token: str, space_id: str) -> Tuple[str, Union[str, pd.DataFrame], Optional[str], Optional[str]]:
     """
     Start a new conversation with Genie.
     """
@@ -158,14 +199,14 @@ def start_new_conversation(question: str, token: str, space_id: str) -> Tuple[st
         complete_message = client.wait_for_message_completion(conversation_id, message_id)
         
         # Process the response
-        result, query_text = process_genie_response(client, conversation_id, message_id, complete_message)
+        result, query_text, description = process_genie_response(client, conversation_id, message_id, complete_message)
         
-        return conversation_id, result, query_text
+        return conversation_id, result, query_text, description
         
     except Exception as e:
-        return None, f"Sorry, an error occurred: {str(e)}. Please try again.", None
+        return None, f"Sorry, an error occurred: {str(e)}. Please try again.", None, None
 
-def continue_conversation(conversation_id: str, question: str, token: str, space_id: str) -> Tuple[Union[str, pd.DataFrame], Optional[str]]:
+def continue_conversation(conversation_id: str, question: str, token: str, space_id: str) -> Tuple[Union[str, pd.DataFrame], Optional[str], Optional[str]]:
     """
     Send a follow-up message in an existing conversation.
     """
@@ -185,58 +226,21 @@ def continue_conversation(conversation_id: str, question: str, token: str, space
         complete_message = client.wait_for_message_completion(conversation_id, message_id)
         
         # Process the response
-        result, query_text = process_genie_response(client, conversation_id, message_id, complete_message)
+        result, query_text, description = process_genie_response(client, conversation_id, message_id, complete_message)
         
-        return result, query_text
+        return result, query_text, description
         
     except Exception as e:
         # Handle specific errors
         if "429" in str(e) or "Too Many Requests" in str(e):
-            return "Sorry, the system is currently experiencing high demand. Please try again in a few moments.", None
+            return "Sorry, the system is currently experiencing high demand. Please try again in a few moments.", None, None
         elif "Conversation not found" in str(e):
-            return "Sorry, the previous conversation has expired. Please try your query again to start a new conversation.", None
+            return "Sorry, the previous conversation has expired. Please try your query again to start a new conversation.", None, None
         else:
             logger.error(f"Error continuing conversation: {str(e)}")
-            return f"Sorry, an error occurred: {str(e)}", None
+            return f"Sorry, an error occurred: {str(e)}", None, None
 
-def process_genie_response(client, conversation_id, message_id, complete_message) -> Tuple[Union[str, pd.DataFrame], Optional[str]]:
-    """
-    Process the response from Genie
-    """
-    # Check attachments first
-    attachments = complete_message.get("attachments", [])
-    for attachment in attachments:
-        attachment_id = attachment.get("attachment_id")
-        
-        # If there's text content in the attachment, return it
-        if "text" in attachment and "content" in attachment["text"]:
-            return attachment["text"]["content"], None
-        
-        # If there's a query, get the result
-        elif "query" in attachment:
-            query_text = attachment.get("query", {}).get("query", "")
-            query_result = client.get_query_result(conversation_id, message_id, attachment_id)
-           
-            data_array = query_result.get('data_array', [])
-            schema = query_result.get('schema', {})
-            columns = [col.get('name') for col in schema.get('columns', [])]
-            
-            # If we have data, return as DataFrame
-            if data_array:
-                # If no columns from schema, create generic ones
-                if not columns and data_array and len(data_array) > 0:
-                    columns = [f"column_{i}" for i in range(len(data_array[0]))]
-                
-                df = pd.DataFrame(data_array, columns=columns)
-                return df, query_text
-    
-    # If no attachments or no data in attachments, return text content
-    if 'content' in complete_message:
-        return complete_message.get('content', ''), None
-    
-    return "No response available", None
-
-def genie_query(question: str, token: str, space_id: str, conversation_id: Optional[str] = None) -> Union[Tuple[str, Union[str, pd.DataFrame], Optional[str]], Tuple[None, str, None]]:
+def genie_query(question: str, token: str, space_id: str, conversation_id: Optional[str] = None) -> Union[Tuple[str, Union[str, pd.DataFrame], Optional[str], Optional[str]], Tuple[None, str, None, None]]:
     """
     Main entry point for querying Genie.
     Starts a new conversation or continues an existing one.
@@ -244,14 +248,14 @@ def genie_query(question: str, token: str, space_id: str, conversation_id: Optio
     try:
         if conversation_id:
             # Continue the existing conversation
-            result, query_text = continue_conversation(conversation_id, question, token, space_id)
+            result, query_text, description = continue_conversation(conversation_id, question, token, space_id)
             # Return the existing conversation_id along with the new result
-            return conversation_id, result, query_text
+            return conversation_id, result, query_text, description
         else:
             # Start a new conversation for the query
-            conversation_id, result, query_text = start_new_conversation(question, token, space_id)
-            return conversation_id, result, query_text
+            conversation_id, result, query_text, description = start_new_conversation(question, token, space_id)
+            return conversation_id, result, query_text, description
             
     except Exception as e:
         logger.error(f"Error in conversation: {str(e)}. Please try again.")
-        return None, f"Sorry, an error occurred: {str(e)}. Please try again.", None
+        return None, f"Sorry, an error occurred: {str(e)}. Please try again.", None, None

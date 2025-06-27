@@ -470,7 +470,7 @@ def get_model_response(trigger_data, current_messages, chat_history, selected_sp
     try:
         headers = request.headers
         user_token = headers.get('X-Forwarded-Access-Token')
-        new_conv_id, response, query_text = genie_query(user_input, user_token, selected_space_id, conversation_id)
+        new_conv_id, response, query_text, description = genie_query(user_input, user_token, selected_space_id, conversation_id)
 
         # Store the DataFrame in chat_history for later retrieval by insight button
         df = pd.DataFrame(response) if not isinstance(response, str) else None
@@ -604,12 +604,15 @@ def get_model_response(trigger_data, current_messages, chat_history, selected_sp
                     id={"type": "insight-button", "index": table_uuid},
                     className="insight-button"
                 )
+                
+                content_elements = []
+                if description:
+                    content_elements.append(dcc.Markdown(description, style={'marginBottom': '15px'}))
+                
+                content_elements.append(html.Div(data_table, style={'marginBottom': '10px'}))
+                content_elements.append(html.Div([export_button, insight_button], style={'display': 'flex'}))
 
-                # MODIFIED: Removed the insight_output div. Insights will be appended as a new message.
-                content = html.Div([
-                    html.Div(data_table, style={'marginBottom': '10px'}),
-                    html.Div([export_button, insight_button], style={'display': 'flex'})
-                ])
+                content = html.Div(content_elements)
 
         # Create bot response
         bot_response = html.Div([
