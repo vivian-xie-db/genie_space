@@ -121,13 +121,22 @@ body {
 }
 
 .user-avatar {
+    width: 32px;
+    height: 32px;
+    background-color: #000e4e;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.user-avatar-chat {
     width: 24px;
     height: 24px;
     background-color: #000e4e;
-    background-image: url("user.png");
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
     border-radius: 50%;
     display: flex;
     justify-content: center;
@@ -152,6 +161,14 @@ body {
     color: white;
     font-size: 12px;
     font-weight: 600;
+}
+
+.dropdown-toggle::after {
+    content: none !important;
+}
+
+.logout-link:active{
+    background-color: #d9dadc;
 }
 
 /* Main content area */

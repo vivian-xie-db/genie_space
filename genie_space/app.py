@@ -80,21 +80,25 @@ app.layout = html.Div([
                 )
             ], id="nav-center", className="nav-center"),
             html.Div([
-                html.Div(className="user-avatar"),
-                html.Div(
-                    id="username-display-nav",
-                    className="username-display",
-                    style={'color': 'black'}
+                dbc.DropdownMenu(
+                    [
+                        dbc.DropdownMenuItem(id="user-email-display", style={'color': 'black', 'fontSize': '14px'}, disabled=True),
+                        dbc.DropdownMenuItem(divider=True),
+                        dbc.DropdownMenuItem(
+                            "Logout",
+                            href=f"https://{os.getenv('DATABRICKS_HOST')}/login.html",
+                            external_link=True,
+                            style={'color': 'black', 'fontSize': '14px'},
+                            className="logout-link"
+                        ),
+                    ],
+                    label=html.Div(id="user-avatar-initials", className="user-avatar"),
+                    nav=True,
+                    in_navbar=True,
+                    align_end=True,
+                    toggle_style={"background": "transparent", "border": "none", "padding": "0"},
+                    className="user-dropdown"
                 ),
-                html.A(
-                    html.Button([html.Img(src="assets/logout_icon_black.svg")],
-                        id="logout-button-nav",
-                        className="logout-button-black",
-                        title="Logout"
-                    ),
-                    href=f"https://{os.getenv('DATABRICKS_HOST')}/login.html",
-                    className="logout-link"
-                )
             ], id="nav-right", className="nav-right"),
         ], id="top-nav", className="top-nav", style={"display": "none"}), # Initially hidden
 
@@ -106,21 +110,25 @@ app.layout = html.Div([
                 html.Div([
                     html.Div(className="company-logo"),
                     html.Div([
-                        html.Div(className="user-avatar"),
-                        html.Div(
-                            id="username-display-overlay",
-                            className="username-display",
-                            style={'color': 'white'}
+                        dbc.DropdownMenu(
+                            [
+                                dbc.DropdownMenuItem(id="user-email-display-overlay", style={'color': 'black', 'fontSize': '14px'}, disabled=True),
+                                dbc.DropdownMenuItem(divider=True),
+                                dbc.DropdownMenuItem(
+                                    "Logout",
+                                    href=f"https://{os.getenv('DATABRICKS_HOST')}/login.html",
+                                    external_link=True,
+                                    style={'color': 'black', 'fontSize': '14px'},
+                                    className="logout-link"
+                                ),
+                            ],
+                            label=html.Div(id="user-avatar-initials-overlay", className="user-avatar"),
+                            nav=True,
+                            in_navbar=True,
+                            align_end=True,
+                            toggle_style={"background": "transparent", "border": "none", "padding": "0"},
+                            className="user-dropdown"
                         ),
-                        html.A(
-                            html.Button([html.Img(src="assets/logout_icon.svg")],
-                                id="logout-button-overlay",
-                                className="logout-button",
-                                title="Logout"
-                            ),
-                            href=f"https://{os.getenv('DATABRICKS_HOST')}/login.html",
-                            className="logout-link"
-                        )
                     ], className="nav-right"),
                     html.Div("BI Agent Platform", className="main-title"),
                     html.Div("Empowering insights through conversation", className="space-select-tagline"),
@@ -390,7 +398,7 @@ def handle_all_inputs(s1_clicks, s2_clicks, s3_clicks, s4_clicks, send_clicks, s
     user_message = html.Div([
         html.Div(user_input, className="message-text"),
         html.Div([
-            html.Div(className="user-avatar")
+            html.Div(id="user-avatar-initials", className="user-avatar-chat")
         ], className="user-info")
     ], className="user-message message")
 
@@ -604,7 +612,7 @@ def get_model_response(trigger_data, current_messages, chat_history, selected_sp
                     id={"type": "insight-button", "index": table_uuid},
                     className="insight-button"
                 )
-                
+
                 content_elements = []
                 if description:
                     content_elements.append(dcc.Markdown(description, style={'marginBottom': '15px'}))
@@ -1157,15 +1165,6 @@ app.clientside_callback(
     prevent_initial_call=True
 )
 
-@app.callback(
-    Output("selected-space-id", "data", allow_duplicate=True),
-    [Input("logout-button-nav", "n_clicks"),
-     Input("logout-button-overlay", "n_clicks")],
-    prevent_initial_call=True
-)
-def logout_and_clear_space(n_clicks_nav, n_clicks_overlay):
-    return None
-
 # Add a callback to control the root-container style to prevent scrolling when overlay is visible
 @app.callback(
     Output("root-container", "style"),
@@ -1207,30 +1206,43 @@ def update_query_tooltip_class(query_running):
 )
 def fetch_username(_):
     try:
-        username = request.headers.get("X-Forwarded-Preferred-Username", "").split("@")[0]
-        username = username.split(".")
-        username = [part[0].upper() + part[1:] for part in username]
-        username = " ".join(username)
-        return username
+        email = request.headers.get("X-Forwarded-Preferred-Username", "")
+        if not email:
+            return {'display_name': 'User', 'email': '', 'initial': 'U'}
+
+        username_part = email.split("@")[0]
+        name_parts = username_part.split(".")
+        display_name = " ".join([part.capitalize() for part in name_parts])
+        initial = display_name[0] if display_name else 'U'
+        
+        return {'display_name': display_name, 'email': email, 'initial': initial}
     except Exception as e:
         logger.error(f"Error fetching username: {e}")
-        return None
+        return {'display_name': 'User', 'email': '', 'initial': 'U'}
 
 # Callback to update the username display div
 @app.callback(
-    [Output("username-display-nav", "children"),
-    Output("username-display-overlay", "children"),
-    Output("welcome-user-greeting", "children")],
+    [Output("welcome-user-greeting", "children"),
+     Output("user-avatar-initials", "children"),
+     Output("user-email-display", "children"),
+     Output("user-avatar-initials-overlay", "children"),
+     Output("user-email-display-overlay", "children")
+     ],
     Input("username-store", "data"),
     prevent_initial_call=False
 )
-def update_username_display(username):
-    if username:
-        first_name = username.split(" ")[0]
+def update_username_display(user_data):
+    if user_data:
+        display_name = user_data.get('display_name', 'User')
+        email = user_data.get('email', '')
+        initial = user_data.get('initial', 'U')
+        
+        first_name = display_name.split(" ")[0]
         greeting = f"Hello, {first_name}"
-        return username, username, greeting
+        
+        return greeting, initial, email, initial, email
 
-    return None, None, None
+    return None, 'U', '', 'U', ''
 
 if __name__ == "__main__":
     app.run_server(debug=False)
