@@ -39,6 +39,7 @@ app.layout = html.Div([
         dcc.Store(id="current-dataframe-uuid", data=None), # New Store to hold the UUID of the DataFrame for insight generation
         dcc.Store(id="processed-export-clicks", data={}), # To store uuids of exported tables
         dcc.Store(id="processed-insight-clicks", data={}), # To store uuids of insight generated tables
+        dcc.Store(id="processed-confirm-insight-clicks", data={}), # New Store for processed confirm insight clicks
         # Top navigation bar - now fixed at the top
         html.Div([
             # Left component containing both nav-left and sidebar
@@ -649,19 +650,19 @@ def get_model_response(trigger_data, current_messages, chat_history, selected_sp
 def export_csv(n_clicks_list, chat_history, processed_clicks):
     ctx = dash.callback_context
     if not ctx.triggered:
-        return dash.no_update, no_update #
+        return dash.no_update, no_update
 
-    triggered_input = ctx.triggered[0] #
-    triggered_prop_id = triggered_input["prop_id"] #
-    triggered_value = triggered_input["value"] #
+    triggered_input = ctx.triggered[0]
+    triggered_prop_id = triggered_input["prop_id"]
+    triggered_value = triggered_input["value"]
 
     # Check if a specific export button was clicked and its n_clicks is greater than 0
-    if "export-button" in triggered_prop_id and triggered_value is not None and triggered_value > 0: #
-        button_id_dict = json.loads(triggered_prop_id.split(".")[0]) #
-        table_uuid = button_id_dict["index"] #
+    if "export-button" in triggered_prop_id and triggered_value is not None and triggered_value > 0:
+        button_id_dict = json.loads(triggered_prop_id.split(".")[0])
+        table_uuid = button_id_dict["index"]
 
         # Check if this button's click has already been processed for this n_clicks value
-        if processed_clicks.get(table_uuid) == triggered_value: #
+        if processed_clicks.get(table_uuid) == triggered_value:
             return dash.no_update, no_update # Already processed this click
 
         df = None
@@ -673,12 +674,12 @@ def export_csv(n_clicks_list, chat_history, processed_clicks):
                     break
     
         if df is None:
-            return dash.no_update, no_update #
+            return dash.no_update, no_update
 
         # Mark this click as processed
-        processed_clicks[table_uuid] = triggered_value #
-        return dcc.send_data_frame(df.to_csv, f"exported_data_{table_uuid[:8]}.csv", index=False), processed_clicks #
-    return dash.no_update, no_update #
+        processed_clicks[table_uuid] = triggered_value
+        return dcc.send_data_frame(df.to_csv, f"exported_data_{table_uuid[:8]}.csv", index=False), processed_clicks
+    return dash.no_update, no_update
 
 
 # Toggle sidebar and speech button
@@ -876,28 +877,28 @@ def toggle_query_visibility(n_clicks):
     State("processed-insight-clicks", "data"), # New state to read from the store
     prevent_initial_call=True
 )
-def open_insight_modal(n_clicks_list, btn_ids_list, processed_clicks): #
-    ctx = dash.callback_context #
-    if not ctx.triggered: #
-        return no_update, no_update, no_update #
+def open_insight_modal(n_clicks_list, btn_ids_list, processed_clicks):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return no_update, no_update, no_update
 
-    triggered_input = ctx.triggered[0] #
-    triggered_prop_id = triggered_input["prop_id"] #
-    triggered_value = triggered_input["value"] #
+    triggered_input = ctx.triggered[0]
+    triggered_prop_id = triggered_input["prop_id"]
+    triggered_value = triggered_input["value"]
 
     # Check if a specific insight button was clicked and its n_clicks is greater than 0
-    if "insight-button" in triggered_prop_id and triggered_value is not None and triggered_value > 0: #
-        triggered_btn_id = json.loads(triggered_prop_id.split(".")[0]) #
-        table_uuid = triggered_btn_id['index'] #
+    if "insight-button" in triggered_prop_id and triggered_value is not None and triggered_value > 0:
+        triggered_btn_id = json.loads(triggered_prop_id.split(".")[0])
+        table_uuid = triggered_btn_id['index']
 
         # Check if this button's click has already been processed for this n_clicks value
-        if processed_clicks.get(table_uuid) == triggered_value: #
+        if processed_clicks.get(table_uuid) == triggered_value:
             return no_update, no_update, no_update # Already processed this click
 
         # Mark this click as processed
-        processed_clicks[table_uuid] = triggered_value #
-        return True, table_uuid, processed_clicks #
-    return no_update, no_update, no_update #
+        processed_clicks[table_uuid] = triggered_value
+        return True, table_uuid, processed_clicks
+    return no_update, no_update, no_update
 
 # Callback to disable confirm button if textarea is empty
 @app.callback(
@@ -922,21 +923,30 @@ def close_modal_on_confirm(n_clicks):
 # Callback to generate insights after prompt confirmation
 @app.callback(
     [Output({"type": "insight-output", "index": ALL}, "children"),
-     Output("insight-generation-status", "children")],
+     Output("insight-generation-status", "children"),
+     Output("processed-confirm-insight-clicks", "data")], # Output for the new store
     [Input("confirm-insight-prompt-button", "n_clicks")],
     [State("insight-prompt-textarea", "value"),
      State("current-dataframe-uuid", "data"),
-     State("chat-history-store", "data")],
+     State("chat-history-store", "data"),
+     State("processed-confirm-insight-clicks", "data")], # State for the new store
     prevent_initial_call=True
 )
-def confirm_and_generate_insights(n_clicks, prompt_value, table_uuid, chat_history):
+def confirm_and_generate_insights(n_clicks, prompt_value, table_uuid, chat_history, processed_confirm_clicks):
     if not n_clicks:
-        return no_update, no_update
+        return no_update, no_update, no_update
+
+    # Create a unique key for this specific confirmation action
+    confirm_key = f"{table_uuid}-{n_clicks}"
+
+    # If this confirm action has already been processed, prevent re-triggering
+    if processed_confirm_clicks.get(confirm_key):
+        return no_update, no_update, no_update
 
     insights_output_children = [no_update] * len(dash.callback_context.outputs_list[0])
 
     if not table_uuid:
-        return insights_output_children, html.Div("Error: No data selected for insights.", style={"color": "red"})
+        return insights_output_children, html.Div("Error: No data selected for insights.", style={"color": "red"}), no_update
 
     df = None
     if chat_history and len(chat_history) > 0:
@@ -947,10 +957,10 @@ def confirm_and_generate_insights(n_clicks, prompt_value, table_uuid, chat_histo
                 break
 
     if df is None:
-        return insights_output_children, html.Div("Error: Data not found for insights.", style={"color": "red"})
+        return insights_output_children, html.Div("Error: Data not found for insights.", style={"color": "red"}), no_update
     
     # Show loading message
-    status_message = html.Div([html.Span(className="spinner"), html.Span("Generating insights...")])
+    # This status message will be overwritten once insights are generated
     
     try:
         insights = call_llm_for_insights(df, prompt=prompt_value)
@@ -965,10 +975,12 @@ def confirm_and_generate_insights(n_clicks, prompt_value, table_uuid, chat_histo
                 )
                 break
         
-        return insights_output_children, "" 
+        # Mark this confirmation as processed
+        processed_confirm_clicks[confirm_key] = True
+        return insights_output_children, "", processed_confirm_clicks
     except Exception as e:
         error_message = f"Error generating insights: {str(e)}"
-        return insights_output_children, html.Div(error_message, style={"color": "red"})
+        return insights_output_children, html.Div(error_message, style={"color": "red"}), no_update
 
 # Callback to fetch spaces on load
 @app.callback(

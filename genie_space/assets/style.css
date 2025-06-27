@@ -1396,7 +1396,7 @@ input:disabled, button:disabled {
 } 
 
 .insight-output strong, .insight-output b{
-    color: #ff0396; /* Pinkish-purple */
+    color: #000e4e;
     font-weight: 600;
 }
 
