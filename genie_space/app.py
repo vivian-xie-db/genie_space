@@ -21,7 +21,11 @@ from dotenv import load_dotenv
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.serving import ChatMessage, ChatMessageRole
 from databricks.sdk.config import Config
+from databricks.sdk.errors import DatabricksError
 from genie_room import genie_query, GenieClient
+from flask_caching import Cache
+import diskcache
+from dash.long_callback import DiskcacheManager
 
 # Load environment variables from a .env file for configuration.
 load_dotenv()
@@ -40,8 +44,6 @@ logger = logging.getLogger(__name__)
 # NOTE: For production environments with multiple workers, a more robust caching
 # solution like Redis or Flask-Caching would be recommended to handle state
 # correctly and prevent memory issues.
-###
-DATAFRAME_CACHE = {}
 
 ###
 # DASH APPLICATION INITIALIZATION
@@ -49,11 +51,40 @@ DATAFRAME_CACHE = {}
 # The main Dash application instance is created here, with external stylesheets
 # for Bootstrap theming and a title for the browser tab.
 ###
+
+# Initialize diskcache for long callbacks
+# This will store background callback results in a 'cache' directory
+cache_disk = diskcache.Cache("./cache")
+long_callback_manager = DiskcacheManager(cache_disk)
+
+# Initialize a separate diskcache for DataFrames to be shared across processes
+# This will be used instead of the in-memory DATAFRAME_CACHE dictionary
+df_cache_for_long_callbacks = diskcache.Cache("./dataframe_cache")
+
 app = dash.Dash(
     __name__,
     external_stylesheets=[dbc.themes.BOOTSTRAP],
-    title="BI Agent"
+    title="BI Agent",
+    background_callback_manager=long_callback_manager
 )
+
+# Initialize Flask-Caching
+# For production, consider using a more robust backend like Redis.
+# Example: {'CACHE_TYPE': 'redis', 'CACHE_REDIS_URL': os.environ.get('REDIS_URL', 'redis://localhost:6379/0')}
+cache = Cache(app.server, config={
+    'CACHE_TYPE': 'SimpleCache', # Use SimpleCache for in-memory caching
+    'CACHE_DEFAULT_TIMEOUT': 300 # Cache items expire after 300 seconds (5 minutes)
+})
+
+# Initialize WorkspaceClient globally
+# This ensures the client is created once and reused across requests.
+# It uses environment variables DATABRICKS_HOST and DATABRICKS_TOKEN by default.
+try:
+    global_workspace_client = WorkspaceClient()
+    logger.info("Databricks WorkspaceClient initialized globally.")
+except Exception as e:
+    logger.error(f"Failed to initialize Databricks WorkspaceClient globally: {e}")
+    global_workspace_client = None
 
 ###
 # APPLICATION LAYOUT DEFINITION
@@ -67,15 +98,16 @@ app = dash.Dash(
 app.layout = html.Div([
     html.Div([
         # Stores for holding client-side data and state without displaying it.
-        dcc.Store(id="selected-space-id", data=None),
+        dcc.Store(id="selected-space-id", data=None, storage_type='session'),
         dcc.Store(id="spaces-list", data=[]),
-        dcc.Store(id="conversation-id-store", data=None),
+        dcc.Store(id="conversation-id-store", data=None, storage_type='session'),
         dcc.Store(id="username-store", data=None),
         dcc.Store(id="current-dataframe-uuid", data=None),
-        dcc.Store(id="processed-export-clicks", data={}),
-        dcc.Store(id="processed-insight-clicks", data={}),
-        dcc.Store(id="processed-confirm-insight-clicks", data={}),
+        dcc.Store(id="processed-export-clicks", data={}, storage_type='session'),
+        dcc.Store(id="processed-insight-clicks", data={}, storage_type='session'),
+        dcc.Store(id="processed-confirm-insight-clicks", data={}, storage_type='session'),
         dcc.Store(id="insight-trigger-store", data=None),
+        dcc.Store(id="user-token-store", data=None),
         
         # Top navigation bar, fixed to the top of the screen.
         html.Div([
@@ -172,9 +204,9 @@ app.layout = html.Div([
         # Dummy divs and stores for facilitating callbacks.
         html.Div(id='dummy-output'),
         dcc.Store(id="chat-trigger", data={"trigger": False, "message": ""}),
-        dcc.Store(id="chat-history-store", data=[]),
+        dcc.Store(id="chat-history-store", data=[], storage_type='session'),
         dcc.Store(id="query-running-store", data=False),
-        dcc.Store(id="session-store", data={"current_session": None}),
+        dcc.Store(id="session-store", data={"current_session": None}, storage_type='session'),
         html.Div(id='dummy-insight-scroll'),
         dcc.Download(id="download-dataframe-csv"),
         
@@ -209,55 +241,54 @@ app.layout = html.Div([
 # like formatting SQL code or calling a Large Language Model (LLM).
 ###
 
-def format_sql_query(sql_query):
-    """
-    Formats a given SQL query string with proper indentation and keyword casing
-    using the sqlparse library, making it more readable.
-    """
-    return sqlparse.format(
-        sql_query,
-        keyword_case='upper',
-        identifier_case=None,
-        reindent=True,
-        indent_width=2,
-        strip_comments=False,
-        comma_first=False
-    )
+@cache.memoize() # Cache the results of this function
+def call_llm_for_insights(df_csv, prompt=None): # df is now passed as CSV string for caching
+     """
+     Sends a DataFrame (as CSV string) and a prompt to a Databricks Serving Endpoint to generate
+     data insights using an LLM. This function now uses the streaming API.
 
-def call_llm_for_insights(df, prompt=None):
-    """
-    Sends a DataFrame and a prompt to a Databricks Serving Endpoint to generate
-    data insights using an LLM.
+     Args:
+         df_csv (str): The data table as a CSV string to be analyzed.
+         prompt (str, optional): A custom prompt for the LLM. A default is used if not provided.
 
-    Args:
-        df (pd.DataFrame): The data table to be analyzed.
-        prompt (str, optional): A custom prompt for the LLM. A default is used if not provided.
+     Returns:
+         str: The complete text response generated by the LLM.
+     """
+     formatting_instruction = "\n\nIMPORTANT: Do not use markdown headers (e.g., '#', '##'). Instead, use bolding for titles (e.g., '**Key Insights**')."
+     default_prompt = (
+         "You are a professional data analyst. Given the following table data, provide deep, actionable analysis for\n"
+         "1. Key insights and trends.\n"
+         "2. Notable patterns\n"
+         "3. Business implications.\n"
+         "Be thorough, professional, and concise."
+     )
 
-    Returns:
-        str: The text response generated by the LLM.
-    """
-    formatting_instruction = "\n\nIMPORTANT: Do not use markdown headers (e.g., '#', '##'). Instead, use bolding for titles (e.g., '**Key Insights**')."
-    default_prompt = (
-        "You are a professional data analyst. Given the following table data, provide deep, actionable analysis for\n"
-        "1. Key insights and trends.\n"
-        "2. Notable patterns\n"
-        "3. Business implications.\n"
-        "Be thorough, professional, and concise."
-    )
-    
-    final_prompt = (prompt or default_prompt) + formatting_instruction
-    csv_data = df.to_csv(index=False)
-    full_prompt = f"{final_prompt}\n\nTable data:\n{csv_data}"
-    
-    try:
-        client = WorkspaceClient()
-        response = client.serving_endpoints.query(
-            os.getenv("SERVING_ENDPOINT_NAME"),
-            messages=[ChatMessage(content=full_prompt, role=ChatMessageRole.USER)],
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        return f"Error generating insights: {str(e)}"
+     final_prompt = (prompt or default_prompt) + formatting_instruction
+     full_prompt = f"{final_prompt}\n\nTable data:\n{df_csv}"
+
+     try:
+        # Use the globally initialized WorkspaceClient
+        if global_workspace_client:
+            response = global_workspace_client.serving_endpoints.query(
+                os.getenv("SERVING_ENDPOINT_NAME"),
+                messages=[ChatMessage(content=full_prompt, role=ChatMessageRole.USER)],
+            )
+            return response.choices[0].message.content
+        else:
+            return "Error: WorkspaceClient not initialized."
+
+     except DatabricksError as dbe:
+         logger.error(f"Databricks API Error generating insights: {dbe}")
+         # Provide a more user-friendly message for specific, common errors
+         if "PERMISSION_DENIED" in str(dbe):
+             return "Error: You do not have permission to access the analysis model. Please contact support."
+         # Attempt to log the raw response body if available in the DatabricksError
+         if hasattr(dbe, 'body') and dbe.body:
+             logger.error(f"DatabricksError response body: {dbe.body}")
+         return f"Error communicating with the analysis service: {dbe.message}"
+     except Exception as e:
+         logger.error(f"An unexpected error occurred while generating insights: {str(e)}")
+         return f"An unexpected error occurred while generating insights: {str(e)}"
 
 ###
 # CALLBACKS
@@ -333,21 +364,39 @@ def handle_all_inputs(s1_clicks, s2_clicks, s3_clicks, s4_clicks, send_clicks, s
     )
     updated_messages.append(thinking_indicator)
 
-    if session_data["current_session"] is None:
-        session_data = {"current_session": len(chat_history) if chat_history else 0}
-    current_session = session_data["current_session"]
-
     chat_history = chat_history or []
-    if current_session < len(chat_history):
-        chat_history[current_session]["messages"] = updated_messages
-        chat_history[current_session]["queries"].append(user_input)
+    # Check if this is the start of a new session
+    if session_data.get("current_session") is None:
+        current_session_index = 0
+        session_data = {"current_session": 0}
+        # Create and insert the new session at the beginning of the history
+        new_session = {
+            "session_id": current_session_index,
+            "queries": [user_input],
+            "messages": updated_messages,
+            "conversation_id": None
+        }
+        chat_history.insert(0, new_session)
     else:
-        chat_history.insert(0, {
-            "session_id": current_session, "queries": [user_input], "messages": updated_messages
-        })
+        # Update an existing session
+        current_session_index = session_data["current_session"]
+        if current_session_index < len(chat_history):
+            chat_history[current_session_index]["messages"] = updated_messages
+            chat_history[current_session_index]["queries"].append(user_input)
+        else:
+            # Fallback for an invalid session index - treat as new
+            current_session_index = 0
+            session_data = {"current_session": 0}
+            new_session = {
+                "session_id": current_session_index,
+                "queries": [user_input],
+                "messages": updated_messages,
+                "conversation_id": None
+            }
+            chat_history.insert(0, new_session)
 
     updated_chat_list = [
-        html.Div(session["queries"][0], className=f"chat-item{' active' if i == current_session else ''}", id={"type": "chat-item", "index": i})
+        html.Div(session["queries"][0], className=f"chat-item{' active' if i == current_session_index else ''}", id={"type": "chat-item", "index": i})
         for i, session in enumerate(chat_history)
     ]
 
@@ -356,7 +405,7 @@ def handle_all_inputs(s1_clicks, s2_clicks, s3_clicks, s4_clicks, send_clicks, s
             updated_chat_list, chat_history, session_data)
 
 ###
-# CALLBACK: Fetch Backend Response
+# CALLBACK: Fetch Backend Response (Converted to long_callback)
 #
 # Triggered by the `handle_all_inputs` callback, this function sends the user's
 # query to the `genie_query` backend. It processes the response, which can be
@@ -364,7 +413,7 @@ def handle_all_inputs(s1_clicks, s2_clicks, s3_clicks, s4_clicks, send_clicks, s
 # cache and displayed as a DataTable. The final response replaces the
 # "Thinking..." indicator in the chat.
 ###
-@app.callback(
+@app.long_callback(
     [Output("chat-messages", "children", allow_duplicate=True),
      Output("chat-history-store", "data", allow_duplicate=True),
      Output("chat-trigger", "data", allow_duplicate=True),
@@ -374,10 +423,23 @@ def handle_all_inputs(s1_clicks, s2_clicks, s3_clicks, s4_clicks, send_clicks, s
     [State("chat-messages", "children"),
      State("chat-history-store", "data"),
      State("selected-space-id", "data"),
-     State("conversation-id-store", "data")],
-    prevent_initial_call=True
+     State("conversation-id-store", "data"),
+     State("user-token-store", "data"),
+     State("session-store", "data")],
+    prevent_initial_call=True,
+    # Define outputs to be updated while the callback is running
+    running=[
+        (Output("chat-input-fixed", "disabled"), True, False),
+        (Output("mic-button", "disabled"), True, False),
+        (Output("send-button-fixed", "disabled"), True, False),
+        (Output("new-chat-button", "disabled"), True, False),
+        (Output("sidebar-new-chat-button", "disabled"), True, False),
+    ],
 )
-def get_model_response(trigger_data, current_messages, chat_history, selected_space_id, conversation_id):
+def get_model_response(trigger_data, current_messages, chat_history, selected_space_id, conversation_id, user_token, session_data):
+    # This callback can now be long-running without blocking the main Dash thread.
+    # The `running` argument will manage the disabled state of buttons.
+
     if not trigger_data or not trigger_data.get("trigger"):
         return no_update, no_update, no_update, no_update, no_update
 
@@ -387,8 +449,7 @@ def get_model_response(trigger_data, current_messages, chat_history, selected_sp
 
     new_conv_id = conversation_id
     try:
-        headers = request.headers
-        user_token = headers.get('X-Forwarded-Access-Token')
+        # Use the user_token passed as a State
         new_conv_id, response, query_text, description = genie_query(user_input, user_token, selected_space_id, conversation_id)
 
         content = None
@@ -409,7 +470,9 @@ def get_model_response(trigger_data, current_messages, chat_history, selected_sp
             # Case 2b: The DataFrame is a full table.
             else:
                 table_uuid = str(uuid.uuid4())
-                DATAFRAME_CACHE[table_uuid] = df_response
+                # Store the DataFrame as a CSV string in the diskcache
+                df_csv_string = df_response.to_csv(index=False)
+                df_cache_for_long_callbacks.set(table_uuid, df_csv_string) # Use the new df_cache
 
                 table_data = df_response.to_dict('records')
                 table_columns = [{"name": col, "id": col} for col in df_response.columns]
@@ -446,8 +509,34 @@ def get_model_response(trigger_data, current_messages, chat_history, selected_sp
         ], className="bot-message message")
         
         updated_messages = current_messages[:-1] + [bot_response]
-        if chat_history:
-            chat_history[0]["messages"] = updated_messages
+        if chat_history and session_data and session_data.get("current_session") is not None:
+            current_session_index = session_data["current_session"]
+            chat_history_list = list(chat_history) if isinstance(chat_history, tuple) else chat_history
+            if 0 <= current_session_index < len(chat_history_list):
+                chat_history_list[current_session_index]["messages"] = updated_messages
+                if new_conv_id:
+                    chat_history_list[current_session_index]["conversation_id"] = new_conv_id
+                chat_history = chat_history_list
+            
+        return updated_messages, chat_history, {"trigger": False, "message": ""}, False, new_conv_id
+
+    except DatabricksError as dbe:
+        logger.error(f"Databricks API Error in get_model_response: {dbe}")
+        error_msg = f"A service error occurred. Please try again later. (Details: {dbe.message})"
+        error_response = html.Div([
+            html.Div(html.Div(className="model-avatar"), className="model-info"),
+            html.Div(html.Div(error_msg, className="message-text-bot"), className="message-content")
+        ], className="bot-message message")
+        
+        updated_messages = current_messages[:-1] + [error_response]
+        if chat_history and session_data and session_data.get("current_session") is not None:
+            current_session_index = session_data["current_session"]
+            chat_history_list = list(chat_history) if isinstance(chat_history, tuple) else chat_history
+            if 0 <= current_session_index < len(chat_history_list):
+                chat_history_list[current_session_index]["messages"] = updated_messages
+                if new_conv_id:
+                    chat_history_list[current_session_index]["conversation_id"] = new_conv_id
+                chat_history = chat_history_list
 
         return updated_messages, chat_history, {"trigger": False, "message": ""}, False, new_conv_id
 
@@ -460,8 +549,14 @@ def get_model_response(trigger_data, current_messages, chat_history, selected_sp
         ], className="bot-message message")
         
         updated_messages = current_messages[:-1] + [error_response]
-        if chat_history:
-            chat_history[0]["messages"] = updated_messages
+        if chat_history and session_data and session_data.get("current_session") is not None:
+            current_session_index = session_data["current_session"]
+            chat_history_list = list(chat_history) if isinstance(chat_history, tuple) else chat_history
+            if 0 <= current_session_index < len(chat_history_list):
+                chat_history_list[current_session_index]["messages"] = updated_messages
+                if new_conv_id:
+                    chat_history_list[current_session_index]["conversation_id"] = new_conv_id
+                chat_history = chat_history_list
 
         return updated_messages, chat_history, {"trigger": False, "message": ""}, False, new_conv_id
 
@@ -492,10 +587,14 @@ def export_csv(n_clicks_list, processed_clicks):
     if not n_clicks or processed_clicks.get(table_uuid) == n_clicks:
         return dash.no_update, no_update
 
-    df = DATAFRAME_CACHE.get(table_uuid)
-    if df is None:
+    # Retrieve the DataFrame as a CSV string from the diskcache
+    df_csv_string = df_cache_for_long_callbacks.get(table_uuid)
+    if df_csv_string is None:
         return dash.no_update, no_update
 
+    # Reconstruct the DataFrame from the CSV string
+    df = pd.read_csv(StringIO(df_csv_string))
+    
     processed_clicks[table_uuid] = n_clicks
     return dcc.send_data_frame(df.to_csv, f"exported_data_{table_uuid[:8]}.csv", index=False), processed_clicks
 
@@ -539,7 +638,8 @@ def toggle_sidebar(n_clicks, current_sidebar_class, current_left_component_class
     [Output("chat-messages", "children", allow_duplicate=True),
      Output("welcome-container", "className", allow_duplicate=True),
      Output("chat-list", "children", allow_duplicate=True),
-     Output("session-store", "data", allow_duplicate=True)],
+     Output("session-store", "data", allow_duplicate=True),
+     Output("conversation-id-store", "data", allow_duplicate=True)],
     Input({"type": "chat-item", "index": ALL}, "n_clicks"),
     [State("chat-history-store", "data"),
      State("chat-list", "children"),
@@ -549,15 +649,17 @@ def toggle_sidebar(n_clicks, current_sidebar_class, current_left_component_class
 def show_chat_history(n_clicks, chat_history, current_chat_list, session_data):
     ctx = dash.callback_context
     if not any(n_clicks):
-        return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
     clicked_id = json.loads(ctx.triggered[0]["prop_id"].split(".")[0])
     clicked_index = clicked_id["index"]
     
     if not chat_history or clicked_index >= len(chat_history):
-        return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
     new_session_data = {"current_session": clicked_index}
+    
+    conversation_id_to_restore = chat_history[clicked_index].get("conversation_id")
 
     updated_chat_list = []
     for i, item in enumerate(current_chat_list):
@@ -565,7 +667,56 @@ def show_chat_history(n_clicks, chat_history, current_chat_list, session_data):
         updated_chat_list.append(item)
 
     return (chat_history[clicked_index]["messages"], "welcome-container hidden",
-            updated_chat_list, new_session_data)
+            updated_chat_list, new_session_data, conversation_id_to_restore)
+
+###
+# CALLBACK: Restore Session on Page Load
+#
+# When the app is refreshed, this callback restores the chat UI from the
+# state persisted in session storage. It populates the chat messages and
+# the sidebar chat list, ensuring a seamless user experience.
+###
+@app.callback(
+    [Output("chat-messages", "children", allow_duplicate=True),
+     Output("chat-list", "children", allow_duplicate=True),
+     Output("welcome-container", "className", allow_duplicate=True)],
+    Input("main-content", "style"), # Trigger after main chat UI becomes visible
+    [State("chat-history-store", "data"),
+     State("session-store", "data")],
+    prevent_initial_call=True
+)
+def restore_session_on_load(main_style, chat_history, session_data):
+    # This callback runs when the main content area is shown (e.g., after agent selection or on page reload with a selected agent)
+    if not main_style or main_style.get("display") == "none":
+        return dash.no_update, dash.no_update, dash.no_update
+
+    # Check if there's any history or an active session to restore
+    if not chat_history or not session_data or session_data.get("current_session") is None:
+        return dash.no_update, dash.no_update, dash.no_update
+
+    current_session_index = session_data.get("current_session")
+
+    # Validate the session index against the chat history length
+    if not isinstance(current_session_index, int) or current_session_index >= len(chat_history):
+        return dash.no_update, dash.no_update, dash.no_update
+
+    # Restore the chat messages for the active session
+    messages = chat_history[current_session_index].get("messages", [])
+
+    # Rebuild the list of conversations in the sidebar
+    chat_list = [
+        html.Div(
+            session["queries"][0],
+            className=f"chat-item{' active' if i == current_session_index else ''}",
+            id={"type": "chat-item", "index": i}
+        )
+        for i, session in enumerate(chat_history)
+    ]
+    
+    # Hide the welcome container if there are messages to display
+    welcome_class = "welcome-container hidden" if messages else "welcome-container visible"
+
+    return messages, chat_list, welcome_class
 
 ###
 # CALLBACK: Auto-scroll Chat Window
@@ -660,6 +811,9 @@ def reset_query_running(chat_messages):
 #
 # To prevent multiple submissions, this callback disables the chat input field
 # and send/new-chat buttons whenever a query is being processed by the backend.
+# This callback will no longer be strictly necessary for get_model_response
+# and confirm_and_generate_insights due to `running` arg in long_callback.
+# However, it might still be useful for other parts of the app.
 ###
 @app.callback(
     [Output("chat-input-fixed", "disabled"),
@@ -667,29 +821,13 @@ def reset_query_running(chat_messages):
      Output("send-button-fixed", "disabled"),
      Output("new-chat-button", "disabled"),
      Output("sidebar-new-chat-button", "disabled")],
-    Input("query-running-store", "data"),
-    prevent_initial_call=True
+    Input("query-running-store", "data")
 )
 def toggle_input_disabled(query_running):
+    # This callback now acts as a fallback/general input disabler.
+    # The `running` argument in long_callback handles specific disabling
+    # during its execution.
     return [query_running] * 5
-
-###
-# CALLBACK: Toggle SQL Code Visibility
-#
-# This was intended to show/hide the SQL query behind a data table.
-# As it's not currently implemented in the main flow, this callback
-# stands ready for future use.
-###
-@app.callback(
-    [Output({"type": "query-code", "index": MATCH}, "className"),
-     Output({"type": "toggle-text", "index": MATCH}, "children")],
-    Input({"type": "toggle-query", "index": MATCH}, "n_clicks"),
-    prevent_initial_call=True
-)
-def toggle_query_visibility(n_clicks):
-    if n_clicks and n_clicks % 2 == 1:
-        return "query-code-container visible", "Hide code"
-    return "query-code-container hidden", "Show code"
 
 ###
 # CALLBACK: Open Insight Modal
@@ -787,17 +925,27 @@ def trigger_insight_generation(n_clicks, prompt_value, table_uuid, current_messa
 # DataFrame from the server-side cache, calls the LLM to generate insights,
 # and then replaces the "Generating..." indicator with the final result.
 ###
-@app.callback(
+@app.long_callback(
     [Output("chat-messages", "children", allow_duplicate=True),
      Output("query-running-store", "data", allow_duplicate=True),
      Output("chat-history-store", "data", allow_duplicate=True),
      Output("insight-trigger-store", "data", allow_duplicate=True)],
     Input("insight-trigger-store", "data"),
     [State("chat-history-store", "data"),
-     State("chat-messages", "children")],
-    prevent_initial_call=True
+     State("chat-messages", "children"),
+     State("session-store", "data")],
+    prevent_initial_call=True,
+    # Define outputs to be updated while the callback is running
+    running=[
+        (Output("chat-input-fixed", "disabled"), True, False),
+        (Output("mic-button", "disabled"), True, False),
+        (Output("send-button-fixed", "disabled"), True, False),
+        (Output("new-chat-button", "disabled"), True, False),
+        (Output("sidebar-new-chat-button", "disabled"), True, False),
+    ],
 )
-def confirm_and_generate_insights(trigger_data, chat_history, current_messages):
+def confirm_and_generate_insights(trigger_data, chat_history, current_messages, session_data):
+    # This callback can now be long-running without blocking the main Dash thread.
     if not trigger_data:
         return no_update, no_update, no_update, no_update
 
@@ -805,14 +953,16 @@ def confirm_and_generate_insights(trigger_data, chat_history, current_messages):
     prompt_value = trigger_data["prompt_value"]
     messages_without_thinking = current_messages[:-1]
 
-    df = DATAFRAME_CACHE.get(table_uuid)
-    if df is None:
+    # Retrieve the DataFrame as a CSV string from the diskcache
+    df_csv_string = df_cache_for_long_callbacks.get(table_uuid)
+    if df_csv_string is None:
         error_msg = "Error: Data not found for insights."
         error_response = html.Div(html.Div(html.Div(error_msg, className="message-text-bot"), className="message-content"), className="bot-message message")
         updated_messages = messages_without_thinking + [error_response]
     else:
         try:
-            insights = call_llm_for_insights(df, prompt=prompt_value)
+            # Pass the DataFrame as a CSV string to the cached function (df_csv_string is already CSV)
+            insights = call_llm_for_insights(df_csv_string, prompt=prompt_value)
             insight_message = html.Div([
                 html.Div(html.Div(className="model-avatar"), className="model-info"),
                 html.Div(dcc.Markdown(insights), className="message-content")
@@ -823,8 +973,13 @@ def confirm_and_generate_insights(trigger_data, chat_history, current_messages):
             error_response = html.Div(html.Div(html.Div(error_msg, className="message-text-bot"), className="message-content"), className="bot-message message")
             updated_messages = messages_without_thinking + [error_response]
     
-    if chat_history:
-        chat_history[0]["messages"] = updated_messages
+    if chat_history and session_data and session_data.get("current_session") is not None:
+        current_session_index = session_data["current_session"]
+        # Ensure chat_history is a mutable list. If it's a tuple from the state, convert it.
+        chat_history_list = list(chat_history) if isinstance(chat_history, tuple) else chat_history
+        if 0 <= current_session_index < len(chat_history_list):
+            chat_history_list[current_session_index]["messages"] = updated_messages
+        chat_history = chat_history_list
         
     return updated_messages, False, chat_history, None
 
@@ -989,6 +1144,26 @@ def fetch_username(_):
     except Exception as e:
         logger.error(f"Error fetching username: {e}")
         return {'display_name': 'User', 'email': '', 'initial': 'U'}
+
+###
+# CALLBACK: Fetch and Store User Token for Long Callbacks
+# This new callback fetches the X-Forwarded-Access-Token and stores it
+# in a dcc.Store so it can be passed to long callbacks, which don't have
+# direct access to flask.request.headers.
+###
+@app.callback(
+    Output("user-token-store", "data"),
+    Input("root-container", "children"), # Trigger on app load
+    prevent_initial_call=False # Allow initial call to populate
+)
+def get_user_token_on_load(_):
+    try:
+        token = request.headers.get("X-Forwarded-Access-Token")
+        logger.info(f"Fetched X-Forwarded-Access-Token: {token[:10]}...") # Log first 10 chars for debug
+        return token
+    except Exception as e:
+        logger.error(f"Error fetching X-Forwarded-Access-Token: {e}")
+        return None
 
 ###
 # CALLBACK: Update UI with User Information
