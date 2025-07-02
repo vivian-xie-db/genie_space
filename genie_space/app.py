@@ -212,27 +212,20 @@ app.layout = html.Div([
         
         # Modal dialog for generating insights from a table.
         dbc.Modal([
-            dbc.ModalHeader(dbc.ModalTitle("Generate Insights")),
-            dbc.ModalBody([
-                html.P("Review and modify the prompt for generating insights:"),
-                dcc.Textarea(
-                    id="insight-prompt-textarea",
-                    value=(
-                        "You are a professional data analyst. Given the following table data, provide deep, actionable analysis for\n"
-                        "1. Key insights and trends.\n"
-                        "2. Notable patterns\n"
-                        "3. Business implications.\n"
-                        "Be thorough, professional, and concise.\n\n"
-                    ),
-                    style={"width": "100%", "height": "200px"},
-                ),
-                html.Div(id="insight-generation-status"),
-            ]),
-            dbc.ModalFooter(dbc.Button("Confirm", id="confirm-insight-prompt-button", className="confirm-button", n_clicks=0), style={"backgroundColor": "#e6e6e62e", "padding": "10px", "borderTop": "1px solid #ccc"}),
-        ], id="insight-prompt-modal", is_open=False, size="lg", centered=True),
+        dbc.ModalHeader(dbc.ModalTitle("AI Analysis"), close_button=True, className="bg-white border-bottom"),
+        dbc.ModalBody([
+                html.P("Edit AI prompt:", className="mb-1 text-muted"),
+                dcc.Textarea(id="insight-prompt-textarea",
+                    value="As a data analyst, analyze the table data for key insights, patterns, and business implications. Be concise and actionable.",
+                    style={"width": "100%", "height": "150px", "resize": "vertical", "borderRadius": "6px", "border": "1px solid #dee2e6", "padding": "8px"},
+                    className="form-control"),
+                html.Div(id="insight-generation-status", className="mt-2"),
+            ],className="p-3"),
+        dbc.ModalFooter(dbc.Button("Confirm", id="confirm-insight-prompt-button", color="primary", n_clicks=0, className="px-3 py-1"), className="border-top p-1"),
+        ], id="insight-prompt-modal", is_open=False, size="md", centered=True, backdrop="static", style={"borderRadius": "6px"}
+        ),
     ], id="app-inner-layout"),
 ], id="root-container")
-
 
 ###
 # HELPER FUNCTIONS
@@ -490,7 +483,7 @@ def get_model_response(trigger_data, current_messages, chat_history, selected_sp
                 )
                 
                 export_button = html.Button("Export as CSV", id={"type": "export-button", "index": table_uuid}, className="insight-button", style={'marginRight': '16px'})
-                insight_button = html.Button("Generate Insights", id={"type": "insight-button", "index": table_uuid}, className="insight-button")
+                insight_button = html.Button("Analyze with AI", id={"type": "insight-button", "index": table_uuid}, className="insight-button")
                 
                 content_elements = []
                 if description:
@@ -832,7 +825,7 @@ def toggle_input_disabled(query_running):
 ###
 # CALLBACK: Open Insight Modal
 #
-# When the "Generate Insights" button is clicked, this callback opens the
+# When the "Analyze with AI" button is clicked, this callback opens the
 # insight prompt modal and stores the UUID of the relevant DataFrame.
 ###
 @app.callback(
@@ -963,9 +956,19 @@ def confirm_and_generate_insights(trigger_data, chat_history, current_messages, 
         try:
             # Pass the DataFrame as a CSV string to the cached function (df_csv_string is already CSV)
             insights = call_llm_for_insights(df_csv_string, prompt=prompt_value)
+            # Create the "Ask follow-up" button
+            ask_follow_up_button = html.Button(
+                "Ask follow-up", 
+                id={"type": "insight-button", "index": table_uuid},
+                className="insight-button", 
+                style={'marginTop': '10px'}
+            )
             insight_message = html.Div([
                 html.Div(html.Div(className="model-avatar"), className="model-info"),
-                html.Div(dcc.Markdown(insights), className="message-content")
+                html.Div([
+                    dcc.Markdown(insights),
+                    ask_follow_up_button
+                ], className="message-content")
             ], className="bot-message message", id=f"insight-response-{uuid.uuid4()}")
             updated_messages = messages_without_thinking + [insight_message]
         except Exception as e:

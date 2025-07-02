@@ -237,6 +237,8 @@ def start_new_conversation(client: GenieClient, question: str) -> Tuple[str, Uni
         
         return conversation_id, result, query_text, description
     except Exception as e:
+        if "Expired Token" in str(e):
+            return None, "Sorry, your authentication token has expired. Please refresh the page and try again.", None, None
         return None, f"Sorry, an error occurred: {str(e)}. Please try again.", None, None
 
 
@@ -262,10 +264,11 @@ def continue_conversation(client: GenieClient, conversation_id: str, question: s
             return "Sorry, the system is currently experiencing high demand. Please try again in a few moments.", None, None
         elif "Conversation not found" in str(e):
             return "Sorry, the previous conversation has expired. Please try your query again to start a new conversation.", None, None
+        elif "Expired Token" in str(e):
+            return "Sorry, your authentication token has expired. Please refresh the page and try again.", None, None
         else:
             logger.error(f"Error continuing conversation: {str(e)}")
             return f"Sorry, an error occurred: {str(e)}", None, None
-
 
 ###
 # FUNCTION: genie_query
