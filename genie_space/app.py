@@ -7,7 +7,7 @@
 # API calls, and logging.
 ###
 import dash
-from dash import html, dcc, Input, Output, State, callback, ALL, MATCH, callback_context, no_update, clientside_callback, dash_table
+from dash import html, dcc, Input, Output, State, callback, ALL, MATCH, callback_context, no_update, clientside_callback, dash_table, DiskcacheManager
 import dash_bootstrap_components as dbc
 import json
 import pandas as pd
@@ -25,7 +25,6 @@ from databricks.sdk.errors import DatabricksError
 from genie_room import genie_query, GenieClient
 from flask_caching import Cache
 import diskcache
-from dash.long_callback import DiskcacheManager
 
 # Load environment variables from a .env file for configuration.
 load_dotenv()
@@ -406,7 +405,7 @@ def handle_all_inputs(s1_clicks, s2_clicks, s3_clicks, s4_clicks, send_clicks, s
 # cache and displayed as a DataTable. The final response replaces the
 # "Thinking..." indicator in the chat.
 ###
-@app.long_callback(
+@app.callback(
     [Output("chat-messages", "children", allow_duplicate=True),
      Output("chat-history-store", "data", allow_duplicate=True),
      Output("chat-trigger", "data", allow_duplicate=True),
@@ -420,6 +419,7 @@ def handle_all_inputs(s1_clicks, s2_clicks, s3_clicks, s4_clicks, send_clicks, s
      State("user-token-store", "data"),
      State("session-store", "data")],
     prevent_initial_call=True,
+    background=True,
     # Define outputs to be updated while the callback is running
     running=[
         (Output("chat-input-fixed", "disabled"), True, False),
@@ -918,7 +918,7 @@ def trigger_insight_generation(n_clicks, prompt_value, table_uuid, current_messa
 # DataFrame from the server-side cache, calls the LLM to generate insights,
 # and then replaces the "Generating..." indicator with the final result.
 ###
-@app.long_callback(
+@app.callback(
     [Output("chat-messages", "children", allow_duplicate=True),
      Output("query-running-store", "data", allow_duplicate=True),
      Output("chat-history-store", "data", allow_duplicate=True),
@@ -928,6 +928,7 @@ def trigger_insight_generation(n_clicks, prompt_value, table_uuid, current_messa
      State("chat-messages", "children"),
      State("session-store", "data")],
     prevent_initial_call=True,
+    background=True,
     # Define outputs to be updated while the callback is running
     running=[
         (Output("chat-input-fixed", "disabled"), True, False),
@@ -1201,4 +1202,4 @@ def update_username_display(user_data):
 # is started only when the script is executed directly.
 ###
 if __name__ == "__main__":
-    app.run_server(debug=False)
+    app.run(debug=False)
