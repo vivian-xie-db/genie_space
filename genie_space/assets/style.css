@@ -1,30 +1,49 @@
-/* Hide all scrollbars globally */
+/* Enhanced: Modernized global scrollbar styling for consistency */
 * {
-    -ms-overflow-style: none !important;  /* IE and Edge */
-    scrollbar-width: none !important;     /* Firefox */
+    box-sizing: border-box;
 }
 
 *::-webkit-scrollbar {
-    display: none !important;  /* Chrome, Safari and Opera */
+    width: 6px;
+    height: 6px;
 }
 
-/* Remove any other scrollbar styling that might conflict */
-::-webkit-scrollbar,
-::-webkit-scrollbar-track,
-::-webkit-scrollbar-thumb {
-    display: none !important;
-    width: 0 !important;
-    height: 0 !important;
+*::-webkit-scrollbar-track {
+    background: #f1f3f5;
+    border-radius: 3px;
+}
+
+*::-webkit-scrollbar-thumb {
+    background: #b0b8c1;
+    border-radius: 3px;
+    transition: background 0.2s ease;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background: #6b7280;
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont,Segoe UI, Roboto, Helvetica Neue, Arial, Noto Sans, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji;
+    font-family: Segoe UI, Calibre, Arial;
     margin: 0;
     padding: 0;
     color: #11171C;
     background-color: #FFFFFF;
-    font-size: 13px;
+    font-size: 14px;
 
+}
+
+.main-title {
+    color: #FFFFFF;
+    font-size: 4rem;
+    padding: 0% 10%;
+}
+
+.greeting-title {
+    margin: auto;
+    font-size: 32px;
+    color: white;
+    padding-top: 1%;
 }
 
 /* Top navigation */
@@ -32,7 +51,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    height: 48px;
+    height: 60px;
     padding: 0 16px;
     gap: 8px;
 }
@@ -40,24 +59,30 @@ body {
 .nav-left, .nav-right {
     display: flex;
     align-items: center;
-    height: 32px;
+    height: 45px;
     gap: 28px;
 }
 
 .nav-left {
     justify-content: space-between;
-    margin: 8px 16px;
+    margin: 16px 16px;
+    flex-direction: column;
+    gap: 28px;
+
 }
 
 .nav-left-open {
     min-width: 280px;
     justify-content: flex-start;
     padding-right: 16px;
+    flex-direction: row;
+    margin: 10px 16px;
 }
 
 .nav-center {
-    margin-left: 100px;
+    margin-left: 50px;
     justify-content: flex-start;
+    position: absolute;
 }
 
 .nav-right {
@@ -65,11 +90,14 @@ body {
     align-items: center;
     gap: 12px;
     margin-right: 16px;
+    position: absolute;
+    right: 0;
+    top: 1%;
 }
 
 .nav-button {
-    width: 32px;
-    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
     border: none;
     background: transparent;
     display: flex;
@@ -81,7 +109,7 @@ body {
 }
 
 .nav-button:hover {
-    background-color: #F5F5F5;
+    background-color:#0000000f;
 }
 
 .logo-container {
@@ -93,9 +121,22 @@ body {
 }
 
 .user-avatar {
+    width: 32px;
+    height: 32px;
+    background-color: #000e4e;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.user-avatar-chat {
     width: 24px;
     height: 24px;
-    background-color: #434A93;
+    background-color: #000e4e;
     border-radius: 50%;
     display: flex;
     justify-content: center;
@@ -105,10 +146,35 @@ body {
     font-weight: 600;
 }
 
+.model-avatar {
+    width: 24px;
+    height: 24px;
+    background-color: #000e4e;
+    background-image: url("bot_icon.svg");
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.dropdown-toggle::after {
+    content: none !important;
+}
+
+.logout-link:active{
+    background-color: #d9dadc;
+}
+
 /* Main content area */
 .main-content {
     display: flex;
-    height: calc(100vh - 48px);
+    height: calc(100vh - 60px);
     position: relative;
     margin-left: 0;
     transition: margin-left 0.3s ease;
@@ -135,11 +201,11 @@ body {
     left: 0;
     z-index: 10;
     height: 100vh;
+    background-color: rgb(248, 250, 252);
 }
 
 .left-component-open {
     width: 300px;
-    background-color: #FFFFFF;
     border-right: 1px solid #DCDCDC;
 }
 
@@ -147,7 +213,6 @@ body {
 .sidebar {
     width: 0;
     height: calc(100vh - 48px);
-    background-color: #FFFFFF;
     overflow: hidden;
     padding: 0;
     white-space: nowrap;
@@ -160,7 +225,7 @@ body {
 }
 
 .logo-container-open {
-    margin-left: 200px;
+    margin-left: 240px;
 }
 
 .sidebar-header {
@@ -215,7 +280,7 @@ body {
     top: 0;
     height: 100%;
     width: 30px;
-    background: linear-gradient(to right, rgba(255,255,255,0), rgba(255,255,255,1) 90%);
+    background: linear-gradient(to right, rgba(255,255,255,0), rgb(248,250,252) 90% 90%);
     pointer-events: none;
 }
 
@@ -237,7 +302,7 @@ body {
     padding: 6px 12px;
     border: 1px solid #C0CDD8;
     border-radius: 4px;
-    background-color: transparent;
+    background-color: #FFF;
     color: #11171C;
     font-size: 13px;
     cursor: pointer;
@@ -259,6 +324,7 @@ body {
 .chat-container {
     margin: 0 auto;
     padding: 16px;
+    padding-top: 60px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -271,29 +337,27 @@ body {
 
 .chat-content {
     flex: 1;
-    padding: 16px;
     display: flex;
     flex-direction: column;
     width: 100%;
     height: 100%;
     margin-bottom: 30px;
-    overflow-y: scroll;
 }
 
 /* Welcome container */
 .welcome-container {
     max-width: 800px;
     margin: auto;
-    padding-top: 100px;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     justify-content: flex-start;
     gap: 28px;
+    padding-top: calc(100vh - 65em);
 }
 
 .welcome-container.hidden {
-    display: none;
+    display: none !important;
 }
 
 .welcome-container.visible {
@@ -304,6 +368,7 @@ body {
     width: 100%;
     font-size: 22px;
     font-weight: 600;
+    color: #000e4e;
     align-self: flex-start;
     text-align: left;
     line-height: 28px;
@@ -317,7 +382,7 @@ body {
 }
 
 .chat-input {
-    width: calc(100% - 40px);
+    width: calc(100% - 80px); /* Adjusted width to make space for two buttons */
     border: none;
     outline: none;
     background-color: transparent;
@@ -425,7 +490,7 @@ body {
     height: 90px;
     max-width: 780px;
     margin: 2px auto;
-    position: sticky;
+    position: fixed;
     bottom: 10px;
     background-color: white;
     z-index: 10;
@@ -436,7 +501,7 @@ body {
 /* Fixed input container */
 .fixed-input-container {
     width: 100%;
-    max-width: 720px;
+    max-width: 780px;
     height: 50px;
     position: relative;
     border: 1px solid #C0CDD8;
@@ -446,7 +511,7 @@ body {
     box-shadow: 0px 2px 3px -1px rgba(0, 0, 0, 0.05), 0px 1px 0px 0px rgba(0, 0, 0, 0.02);
     display: flex;
     align-items: center;
-    transition: border-color 0.2s ease;  /* Add smooth transition */
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;  /* Add smooth transition */
 }
 
 .fixed-input-container:focus-within {
@@ -467,10 +532,12 @@ body {
     display: flex;
     flex-direction: column;
     width: 100%;
-    overflow-y: scroll;
+    overflow-y: auto;
     scrollbar-width: none;
     scroll-behavior: smooth;
-    -ms-overflow-style: none;  /* IE and Edge */
+    -ms-overflow-style: none;  
+    max-height: calc(100vh - 48px - 90px - 20px);
+    padding-bottom: 100px;
 }
 
 .chat-messages::-webkit-scrollbar {
@@ -479,7 +546,7 @@ body {
 
 .message {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     width: 100%;
 }
 
@@ -487,6 +554,8 @@ body {
     align-items: flex-start;
     text-wrap: wrap;
     align-self: flex-start;
+    justify-content: flex-end;
+    gap: 16px;
 }
 
 .bot-message {
@@ -498,8 +567,18 @@ body {
 }
 
 .message-text {
-    border-radius: 12px;
-    font-size: 13px;
+    border-radius: 8px 8px 0px 8px;
+    font-size: 14px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+    background: #d5eafc;
+}
+
+.message-text-bot {
+    border-radius: 8px;
+    font-size: 14px;
     line-height: 1.5;
     word-wrap: break-word;
     overflow-wrap: break-word;
@@ -507,14 +586,13 @@ body {
 }
 
 .user-message .message-text {
-    padding: 2px 0px 12px 40px;
-    width: 100%;
+    padding: 6px 6px 6px 20px;
 }
 
 .bot-message .message-content {
     border-radius: 12px;
     width: 100%;
-    padding: 2px 0px 12px 40px;
+    padding: 4px 0px 12px 20px;
     word-wrap: break-word;
     overflow-wrap: break-word;
     white-space: normal;
@@ -747,7 +825,7 @@ button:focus, .suggestion-button:focus {
 
 /* Scrollbar styling */
 ::-webkit-scrollbar {
-    width: 8px;
+    width: 6px;
     position: absolute;
     right: 0;
 }
@@ -856,26 +934,7 @@ body::-webkit-scrollbar {
     gap: 16px;
     padding: 4px 0;
 }
-.model-avatar {
-    width: 20px;
-    height: 20px;
-    display: flex;
-    border-radius: 4px;
-    color: white;
-    background-image: url("genie_bot_icon.png");
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
-}
-.model-avatar-wrapper {
-    width: 24px;
-    height: 24px;
-    display: flex;
-    border-radius: 4px;
-    background-color: #434A93;
-    justify-content: center;
-    align-items: center;
-}
+
 .viz-container {
     display: flex;
     flex-direction: column;
@@ -883,7 +942,13 @@ body::-webkit-scrollbar {
     align-items: flex-start;
 }
 
-/* Tooltip styling */
+/* Only show tooltip when .query-tooltip-active is present and input is hovered/focused */
+.fixed-input-container:hover > .query-tooltip.query-tooltip-active,
+.fixed-input-container:focus-within > .query-tooltip.query-tooltip-active {
+    opacity: 1;
+    visibility: visible;
+}
+
 .query-tooltip {
     position: absolute;
     top: -40px;
@@ -913,14 +978,9 @@ body::-webkit-scrollbar {
     border-color: #333 transparent transparent transparent;
 }
 
-.query-tooltip.visible {
-    opacity: 1;
-    visibility: visible;
-}
-
-.query-tooltip.hidden {
-    opacity: 0;
-    visibility: hidden;
+/* Remove old visible/hidden classes for .query-tooltip */
+.query-tooltip.visible, .query-tooltip.hidden {
+    display: none;
 }
 
 /* Style for disabled inputs */
@@ -940,18 +1000,33 @@ input:disabled, button:disabled {
     border-radius: 4px;
 }
 
-.export {
-    margin-bottom: 16px;
-    border-radius: 2px;
-    padding: 5px 10px;
-    font-size: 12px;
+.insight-button {
     border: none;
-    
+    background: #f0f0f0;
+    padding: 5px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-top: 10px;
+    font-size: 13px;
+    }
+
+.insight-button:hover {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
 }
 
-/* Hover effect for the export button */
-.export:hover {
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+.confirm-button {
+    border: none;
+    background: #000e4e;
+    padding: 5px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-top: 10px;
+    font-size: 13px;
+    }
+
+.confirm-button:hover {
+    background: #00B7F1;
+    border-color: #00B7F1;
 }
 
 /* OR Option 2: Make the scrollbar more subtle */
@@ -974,21 +1049,30 @@ input:disabled, button:disabled {
 
 .logout-button {
     background-color: transparent;
-    border: 1px solid #C0CDD8;
+    border: none;
     border-radius: 4px;
-    padding: 4px 12px;
-    font-size: 13px;
-    color: #11171C;
     cursor: pointer;
-    height: 28px;
     display: flex;
     align-items: center;
-    transition: all 0.2s ease;
 }
 
 .logout-button:hover {
-    background-color: rgba(34, 114, 180, 0.08);
-    border-color: #A0B0C0;
+    background-color: #ffffff4d;
+    cursor: pointer;
+}
+
+.logout-button-black {
+    background-color: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+}
+
+.logout-button-black:hover {
+    background-color: #00000017;
+    cursor: pointer;
 }
 
 .logout-link {
@@ -1329,6 +1413,179 @@ input:disabled, button:disabled {
 } 
 
 .insight-output strong, .insight-output b{
-    color: #ff0396; /* Pinkish-purple */
+    color: #000e4e;
     font-weight: 600;
+}
+
+.space-select-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background-image: url("background150dpi.jpg");
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center;
+    height: 100%;
+}
+
+.space-select-card {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    margin: auto;
+}
+
+.space-select-title {
+    font-size: 1.2rem;
+    font-weight: 500;
+    color: #1A1A1A;
+    letter-spacing: -0.5px;
+    margin-left: 10px;
+}
+
+.space-select-dropdown {
+    width: 350px;         
+    max-width: 600px;
+    font-size: 14px;
+    padding: 8px 0px;
+}
+.space-select-dropdown:focus {
+    border-color: #4299E0;
+    outline: none;
+}
+.space-select-dropdown .Select-menu-outer {
+    max-height: 140px;
+    overflow-y: scroll;
+}
+
+.space-select-button {
+    padding: 6px 10px;
+    border: 1px solid #00B7F1;
+    background: #00B7F1;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, border 0.2s;
+    border-radius: 5px;
+    height: 37px;
+}
+.space-select-button:hover {
+    background: #000e4e;
+    border-color: #000e4e;
+}
+
+.space-select-tagline {
+    display: flex;
+    padding-right: 8%;
+    flex-direction: column;
+    justify-content: center;
+    font-size: 1.2rem;
+    text-align: left;
+    font-style: italic;
+    margin-right: 9%;
+    margin-top: -30px;
+    color: white;
+    padding: 1% 10%;
+    width: 100%;
+}
+
+.space-select-error {
+    color: #e53e3e;
+    font-size: 15px;
+    margin-top: 8px;
+    text-align: center;
+}
+
+.space-select-spinner {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    border: 2px solid transparent;
+    border-top: 2px solid #040404;
+    border-right: 2px solid #111212;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-right: 18px;
+}
+
+.support-links {
+    position: absolute;
+    bottom: 10px;
+    right: 5px;
+}
+
+.request-support-button {
+    background: transparent;
+    color: #fff;
+    box-shadow: none;
+    border: none;
+}
+
+.request-support-button:hover {
+    color: #00B7F1;
+    cursor: pointer;
+}
+
+.explore-agent-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 2%;
+}
+
+.company-logo {
+    width: 155px;
+    height: 50px;
+    background-image: url("bi_logo.png");
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    transform: scale(1.2);
+    position: absolute;
+    top: 2%;
+    left: 2%;
+}
+
+.company-logo-black {
+    width: 155px;
+    height: 50px;
+    background-image: url(bi_logo_black.png);
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* ADDED: Styles for Voice Dictation Feature */
+.fixed-input-container.hearing {
+    border-color: #4299E0;
+    box-shadow: 0 0 0 3px rgba(66, 153, 224, 0.4);
+}
+
+.input-button#mic-button.listening img {
+    animation: pulse-mic-icon 1.5s ease-in-out infinite;
+    /* This filter gives the icon a blue color when active */
+    filter: invert(48%) sepia(61%) saturate(2371%) hue-rotate(187deg) brightness(97%) contrast(97%);
+}
+
+@keyframes pulse-mic-icon {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.1);
+        opacity: 0.7;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
 }
