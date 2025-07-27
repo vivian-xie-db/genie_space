@@ -845,11 +845,11 @@ def generate_insights(n_clicks, btn_id, chat_history):
     if df is None:
         return None
     insights = call_llm_for_insights(df)
-    return html.Div(
-        dcc.Markdown(insights),
-        style={"marginTop": "32px", "background": "#f4f4f4", "padding": "16px", "borderRadius": "4px"},
-        className="insight-output"
-    )
+    return html.Div([
+        html.Div([
+            dcc.Markdown(insights, className="insight-content")
+        ], className="insight-body")
+    ], className="insight-wrapper")
 
 if __name__ == "__main__":
     app.run_server(debug=True)
