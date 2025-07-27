@@ -8,10 +8,7 @@
 This repository demonstrates how to integrate Databricks' AI/BI Genie Conversation APIs into custom Databricks Apps applications, allowing users to interact with their structured data using natural language.
 
 You can also click the Generate insights button and generate deep analysis and trends of your data.
-![](./genie_space/assets/insights1.png)
-![](./genie_space/assets/insights2.png)
-
-
+![](./genie_space/assets/genie2.png)
 
 ## Overview
 
