@@ -2,7 +2,7 @@ import dash
 from dash import html, dcc, Input, Output, State, callback, ALL, MATCH, callback_context, no_update, clientside_callback, dash_table
 import dash_bootstrap_components as dbc
 import json
-from genie_room import genie_query
+from genie_room import genie_query, GenieResponse
 import pandas as pd
 import os
 from dotenv import load_dotenv
@@ -422,31 +422,38 @@ def get_model_response(trigger_data, current_messages, chat_history):
         return dash.no_update, dash.no_update, dash.no_update, dash.no_update
     
     try:
-        response, query_text = genie_query(user_input)
-        
-        if isinstance(response, str):
-            content = dcc.Markdown(response, className="message-text")
-        else:
-            # Data table response
-            df = pd.DataFrame(response)
-            
+        genie_response = genie_query(user_input)
+
+        content_parts = []
+
+        # SQL description section
+        if genie_response.sql_description:
+            content_parts.append(
+                html.Div([
+                    html.Div(genie_response.sql_description, className="sql-description-text")
+                ], className="sql-description-section")
+            )
+
+        # Text response section
+        if genie_response.text_response:
+            content_parts.append(dcc.Markdown(genie_response.text_response, className="message-text"))
+
+        # Data table section
+        if genie_response.data is not None:
+            df = genie_response.data
+
             # Store the DataFrame in chat_history for later retrieval by insight button
             if chat_history and len(chat_history) > 0:
                 chat_history[0].setdefault('dataframes', {})[f"table-{len(chat_history)}"] = df.to_json(orient='split')
             else:
                 chat_history = [{"dataframes": {f"table-{len(chat_history)}": df.to_json(orient='split')}}]
-            
-            # Create the table with adjusted styles
+
             data_table = dash_table.DataTable(
                 id=f"table-{len(chat_history)}",
                 data=df.to_dict('records'),
                 columns=[{"name": i, "id": i} for i in df.columns],
-                
-                # Export configuration
                 export_format="csv",
                 export_headers="display",
-                
-                # Other table properties
                 page_size=10,
                 style_table={
                     'display': 'inline-block',
@@ -477,30 +484,21 @@ def get_model_response(trigger_data, current_messages, chat_history):
                 page_action='native'
             )
 
-            # Format SQL query if available
-            query_section = None
-            if query_text is not None:
-                formatted_sql = format_sql_query(query_text)
-                query_index = f"{len(chat_history)}-{len(current_messages)}"
-                
-                query_section = html.Div([
+            content_parts.append(html.Div([data_table], style={
+                'marginBottom': '20px',
+                'paddingRight': '5px'
+            }))
+
+            # Data summary section
+            if genie_response.data_summary:
+                content_parts.append(
                     html.Div([
-                        html.Button([
-                            html.Span("Show code", id={"type": "toggle-text", "index": query_index})
-                        ], 
-                        id={"type": "toggle-query", "index": query_index}, 
-                        className="toggle-query-button",
-                        n_clicks=0)
-                    ], className="toggle-query-container"),
-                    html.Div([
-                        html.Pre([
-                            html.Code(formatted_sql, className="sql-code")
-                        ], className="sql-pre")
-                    ], 
-                    id={"type": "query-code", "index": query_index}, 
-                    className="query-code-container hidden")
-                ], id={"type": "query-section", "index": query_index}, className="query-section")
-            
+                        html.Div("Data Summary", className="data-summary-title"),
+                        html.Pre(genie_response.data_summary, className="data-summary-text")
+                    ], className="data-summary-section")
+                )
+
+            # Insight button
             insight_button = html.Button(
                 "Generate Insights",
                 id={"type": "insight-button", "index": f"table-{len(chat_history)}"},
@@ -513,17 +511,34 @@ def get_model_response(trigger_data, current_messages, chat_history):
                 color="#000000",
                 children=html.Div(id={"type": "insight-output", "index": f"table-{len(chat_history)}"})
             )
+            content_parts.append(insight_button)
+            content_parts.append(insight_output)
 
-            # Create content with table and optional SQL section
-            content = html.Div([
-                html.Div([data_table], style={
-                    'marginBottom': '20px',
-                    'paddingRight': '5px'
-                }),
-                query_section if query_section else None,
-                insight_button,
-                insight_output,
-            ])
+        # SQL query toggle section
+        if genie_response.sql_query:
+            formatted_sql = format_sql_query(genie_response.sql_query)
+            query_index = f"{len(chat_history)}-{len(current_messages)}"
+
+            query_section = html.Div([
+                html.Div([
+                    html.Button([
+                        html.Span("Show code", id={"type": "toggle-text", "index": query_index})
+                    ],
+                    id={"type": "toggle-query", "index": query_index},
+                    className="toggle-query-button",
+                    n_clicks=0)
+                ], className="toggle-query-container"),
+                html.Div([
+                    html.Pre([
+                        html.Code(formatted_sql, className="sql-code")
+                    ], className="sql-pre")
+                ],
+                id={"type": "query-code", "index": query_index},
+                className="query-code-container hidden")
+            ], id={"type": "query-section", "index": query_index}, className="query-section")
+            content_parts.append(query_section)
+
+        content = html.Div(content_parts)
         
         # Create bot response
         bot_response = html.Div([

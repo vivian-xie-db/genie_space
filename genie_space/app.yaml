@@ -4,6 +4,6 @@ command:
 
 env:
 - name: "SPACE_ID"
-  value: "genie-space"
+  valueFrom: "genie-space"
 - name: "SERVING_ENDPOINT_NAME"
   valueFrom: "serving-endpoint"
